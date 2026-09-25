@@ -15,33 +15,35 @@ import 'sentry_user_context.dart';
 /// the SDK itself, earlier, in `main()` (`Sentry.isEnabled` is only ever true
 /// by the time this provider's `boot()` runs because that already happened).
 ///
-/// [T] is the host app's own user model. Pass [userId] and [userEmail] to
-/// have this provider install a [SentryUserContext] that follows
-/// `Auth.stateNotifier`; leave them null to skip user reporting entirely
+/// [T] is the host app's own user model. Pass [userId] (and [userEmail] when
+/// the model has one) to have this provider install a [SentryUserContext]
+/// that follows `Auth.stateNotifier`; leave [userId] null to skip user
+/// reporting entirely
 /// (the network interceptor and the navigator observer still wire up either
 /// way). [userExtras] adds anything else the app wants tagged on every event
 /// (a team id, a plan) once a user is reported.
 class SentryServiceProvider<T extends Model> extends ServiceProvider {
   /// Creates the provider.
   ///
-  /// [userId] and [userEmail] read the reported id/email straight off [T];
-  /// both are required together, since a scope user with no id is not a
-  /// useful one. [userExtras] is optional and additive.
+  /// [userId] turns user reporting on: a scope user with no id is not a
+  /// useful one, so without it nothing is reported. [userEmail] is optional,
+  /// because a model with no email (a guest-only app) still deserves an id
+  /// on its events. [userExtras] is optional and additive.
   SentryServiceProvider(
     super.app, {
     String Function(T user)? userId,
     String? Function(T user)? userEmail,
     Map<String, String> Function(T user)? userExtras,
-  }) : _userContext = (userId != null && userEmail != null)
+  }) : _userContext = userId != null
             ? SentryUserContext<T>(
                 id: userId,
-                email: userEmail,
+                email: userEmail ?? (T user) => null,
                 extras: userExtras,
               )
             : null;
 
   /// The user-context installer this provider wires in [boot], or null when
-  /// the host app declined to supply [userId]/[userEmail].
+  /// the host app supplied no [userId].
   final SentryUserContext<T>? _userContext;
 
   @override

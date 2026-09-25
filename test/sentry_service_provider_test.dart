@@ -186,6 +186,23 @@ void main() {
         expect(reported!.id, 'usr_1');
       });
 
+      test('reports the user from userId alone, for a model with no email',
+          () async {
+        Magic.app.setInstance('network', _SpyNetworkDriver());
+        Auth.fake(user: _TestUser(id: 'usr_2'));
+
+        await SentryServiceProvider<_TestUser>(
+          MagicApp.instance,
+          userId: (user) => user.id,
+        ).boot();
+
+        SentryUser? reported;
+        await Sentry.configureScope((scope) => reported = scope.user);
+
+        expect(reported?.id, 'usr_2');
+        expect(reported?.email, isNull);
+      });
+
       test('skips user reporting when no callbacks are supplied', () async {
         Magic.app.setInstance('network', _SpyNetworkDriver());
 

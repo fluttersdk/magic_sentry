@@ -61,8 +61,9 @@ on `Sentry.isEnabled`.
 **User reporting is opt-in and generic.** This package has no model of its
 own and never invents a "team" concept: `SentryServiceProvider<T>` takes
 `userId`/`userEmail`/`userExtras` callbacks over the host app's own
-`Authenticatable` model `T`. Leave them out to skip user reporting; the
-network interceptor and navigator observer still wire up.
+`Authenticatable` model `T`; `userId` alone turns reporting on (email is
+optional). Leave `userId` out to skip user reporting; the network interceptor
+and navigator observer still wire up.
 
 ## Post-Change Checklist
 

@@ -66,6 +66,6 @@ barrel and that local file) an ambiguous import.
 - **Not enabled by default.** `sentryEnabled`/`Sentry.isEnabled` answer false with an empty `SENTRY_DSN`, and every integration in this package degrades to a no-op rather than throwing.
 - **`sendDefaultPii` and session replay are never turned on by this package.** An app that wants either does so explicitly in its own `configure` callback.
 - **HTTP double-reporting is avoided on purpose.** `SentryServiceProvider` disables `sentry_dio`'s own `captureFailedRequests`, since `SentryNetworkInterceptor` is the layer that decides event vs breadcrumb.
-- **User reporting is opt-in and generic.** This package has no model of its own; pass `userId`/`userEmail` (and optionally `userExtras`) for your own `Authenticatable` model, or leave them out to skip user reporting entirely.
+- **User reporting is opt-in and generic.** This package has no model of its own; pass `userId` (plus `userEmail` when your model has one, and optionally `userExtras`) for your own `Authenticatable` model, or leave `userId` out to skip user reporting entirely.
 
 See [doc/getting-started/installation.md](doc/getting-started/installation.md) for configuration details.
