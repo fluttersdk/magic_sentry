@@ -1,0 +1,86 @@
+import 'package:magic/magic.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
+
+/// The `.env` key naming this app's Sentry DSN. Empty or absent disables
+/// the SDK entirely (see [sentryDsn]).
+const String sentryDsnEnvKey = 'SENTRY_DSN';
+
+/// The `.env` key naming the reported environment (`production`, `staging`,
+/// ...). Defaults to `local` when absent, which keeps a developer machine's
+/// events out of a production environment filter.
+const String sentryEnvironmentEnvKey = 'SENTRY_ENVIRONMENT';
+
+/// The `.env` key naming the release identifier attached to every event.
+///
+/// Left empty by default: the SDK derives `package@version+build` from the
+/// platform manifest on iOS and Android, but Flutter web has no manifest to
+/// read, so a web build needs this set explicitly (typically via
+/// `--dart-define` at build time) for release health to mean anything.
+const String sentryReleaseEnvKey = 'SENTRY_RELEASE';
+
+/// The `.env` key naming the fraction of transactions that are traced.
+const String sentryTracesSampleRateEnvKey = 'SENTRY_TRACES_SAMPLE_RATE';
+
+/// The default traces sample rate when [sentryTracesSampleRateEnvKey] is
+/// absent from `.env`.
+const double sentryDefaultTracesSampleRate = 0.2;
+
+/// Whether this build reports to Sentry at all.
+///
+/// True exactly when [sentryDsn] is non-empty. Kept alongside [sentryDsn]
+/// rather than reading `Sentry.isEnabled`: this answers the question BEFORE
+/// `SentryFlutter.init` has run, which [configureSentry] needs to decide
+/// whether the rest of its options matter.
+bool get sentryEnabled => sentryDsn.isNotEmpty;
+
+/// The DSN read from `.env`, or an EMPTY STRING when absent.
+///
+/// The return type is deliberately `String` and never `String?`. `Sentry.init`
+/// throws `ArgumentError('DSN is required.')` when the DSN is null, while an
+/// empty string is a documented, supported "do not send anything" (see
+/// `SentryOptions.dsn`). Since `appRunner` runs inside `SentryFlutter.init`,
+/// a nullable DSN would stop the whole app from booting on every machine that
+/// has not set [sentryDsnEnvKey], including CI and the test suite.
+String get sentryDsn => Env.getString(sentryDsnEnvKey, '');
+
+/// The default `configure` callback for `MagicSentry.run`.
+///
+/// Reads the standard `.env` keys documented above and applies them to
+/// [options]. Pass this directly when the standard keys are all an app
+/// needs:
+///
+/// ```dart
+/// await MagicSentry.run(configure: configureSentry, appRunner: _boot);
+/// ```
+///
+/// This file was generated once by `plugin:install` from
+/// `magic_sentry`'s own install manifest, and is yours to edit from here: an
+/// app that needs more (a computed sample rate, a release gating rule)
+/// changes this function directly rather than writing a second one.
+void configureSentry(SentryFlutterOptions options) {
+  options.dsn = sentryDsn;
+  options.environment = Env.getString(sentryEnvironmentEnvKey, 'local');
+
+  final String release = Env.getString(sentryReleaseEnvKey, '');
+
+  if (release.isNotEmpty) {
+    options.release = release;
+  }
+
+  options.tracesSampleRate = Env.get<double>(
+    sentryTracesSampleRateEnvKey,
+    sentryDefaultTracesSampleRate,
+  );
+
+  // Fixed rather than read from `.env`: an app that wants PII sent has to
+  // override this here rather than flip a single environment variable,
+  // since a stray value there would otherwise leak a user's IP address and
+  // request bodies to every event.
+  options.sendDefaultPii = false;
+
+  // Release health depends on named routes: `SentryNavigatorObserver` reads
+  // `RouteSettings.name`, so a router that leaves pages unnamed reports zero
+  // sessions while the transport keeps working. See
+  // `doc/getting-started/installation.md#release-health`.
+  options.enableAutoSessionTracking = true;
+}

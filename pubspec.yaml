@@ -1,0 +1,33 @@
+name: magic_sentry
+description: Sentry error and performance monitoring for the Magic Framework.
+version: 0.0.1
+homepage: https://magic.fluttersdk.com/sentry
+documentation: https://magic.fluttersdk.com/packages/sentry/getting-started/installation
+repository: https://github.com/fluttersdk/magic_sentry
+issue_tracker: https://github.com/fluttersdk/magic_sentry/issues
+
+topics:
+  - sentry
+  - error-monitoring
+  - observability
+  - magic
+  - flutter
+
+environment:
+  sdk: ">=3.6.0 <4.0.0"
+  flutter: ">=3.27.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # Auth.stateNotifier and MagicRouter.instance.addObserver both land at
+  # 0.0.21; see the published API check under doc/getting-started/installation.md.
+  magic: ^0.0.21
+  sentry_flutter: ^9.27.0
+  sentry_dio: ^9.27.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  test: ^1.25.0
+  flutter_lints: ^6.0.0
