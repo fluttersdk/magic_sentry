@@ -1,0 +1,58 @@
+# magic_sentry install manifest (PluginInstaller DSL schema v1).
+#
+# Sentry starts BEFORE Magic.init (see MagicSentry.run in
+# lib/src/magic_sentry.dart), so unlike magic_deeplink's config this package's
+# published config is NOT a magic config-factory map: `Config` is not loaded
+# yet at the point it is read. Install publishes a plain Dart file exposing
+# `configureSentry`/`sentryDsn`/`sentryEnabled`, which main() imports and
+# passes to `MagicSentry.run(configure: ...)` directly, by hand: there is no
+# `magic.config_factory` key here because there is nothing for Magic.init to
+# fold it into.
+#
+# `SentryServiceProvider` IS injected into the provider list (it wires the
+# network interceptor, the user context and the navigator observer once
+# Magic.init has run), so `magic.provider` is set.
+#
+# See doc/install_yaml_schema.md (in fluttersdk_artisan) for the full schema.
+
+plugin_name: magic_sentry
+
+publish:
+  install/sentry_config: lib/config/sentry.dart
+
+magic:
+  provider: SentryServiceProvider
+
+post_install:
+  message: |
+    magic_sentry installed. Bootstrap workflow:
+
+    1. Review lib/config/sentry.dart and confirm the `.env` keys it reads
+       (SENTRY_DSN, SENTRY_ENVIRONMENT, SENTRY_RELEASE,
+       SENTRY_TRACES_SAMPLE_RATE) match what your deploy pipeline sets.
+
+    2. Wrap main() in MagicSentry.run, BEFORE Magic.init:
+
+         import 'config/sentry.dart';
+
+         void main() {
+           MagicSentry.run(configure: configureSentry, appRunner: _boot);
+         }
+
+         Future<void> _boot() async {
+           await Magic.init(configFactories: [...]);
+           runApp(MyApp());
+         }
+
+    3. SentryServiceProvider was added to lib/config/app.dart's providers
+       list. Pass userId/userEmail (and optionally userExtras) if you want
+       Sentry's scope user kept in step with Auth.stateNotifier:
+
+         (app) => SentryServiceProvider<User>(
+           app,
+           userId: (user) => user.id,
+           userEmail: (user) => user.email,
+         ),
+
+       Leave the type argument and both callbacks out to skip user reporting;
+       the network interceptor and the navigator observer wire up either way.
