@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- `EventBreadcrumbs.breadcrumbFor`: maps any dispatched event that implements magic's `ReportsBreadcrumb` (`breadcrumbCategory`, `breadcrumbMessage`, `breadcrumbData`) to a Sentry breadcrumb, null for every other event. `SentryServiceProvider.boot` wires it through `Event.listenAny`, gated on `Sentry.isEnabled` like the provider's other hooks, so any package or app event that opts in (`magic_deeplink`'s `DeeplinkOpened` and `DeeplinkNavigating`, for example) shows up in the breadcrumb trail with no extra wiring. (`lib/src/event_breadcrumbs.dart`)
+
 ### Fixed
 
 - The barrel (`lib/magic_sentry.dart`) no longer exports `config/sentry.dart`. The published install stub puts the same top-level names (`configureSentry`, `sentryDsn`, `sentryEnabled`, the env key constants) into a consumer app's own `lib/config/sentry.dart`; exporting a package copy alongside that made the documented `main()` an ambiguous import that never compiled. The package no longer carries its own copy of that file; `assets/stubs/install/sentry_config.stub` is now the single source.

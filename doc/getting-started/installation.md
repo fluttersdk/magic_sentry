@@ -195,3 +195,9 @@ stays empty while error reporting keeps working.
   `lib/src/sentry_network_interceptor.dart`.
 - **User context**: `SentryUserContext<T>` follows `Auth.stateNotifier`; see
   `lib/src/sentry_user_context.dart` for the id/email/extras contract.
+- **Event breadcrumbs**: any package or app event that implements magic's
+  `ReportsBreadcrumb` (`breadcrumbCategory`, `breadcrumbMessage`,
+  `breadcrumbData`) shows up in the breadcrumb trail automatically, no extra
+  wiring required. `magic_deeplink`'s `DeeplinkOpened` and
+  `DeeplinkNavigating` are two examples. See
+  `lib/src/event_breadcrumbs.dart`.
