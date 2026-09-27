@@ -47,6 +47,12 @@ class SentryServiceProvider<T extends Model> extends ServiceProvider {
   /// the host app supplied no [userId].
   final SentryUserContext<T>? _userContext;
 
+  /// The remover callback for the event breadcrumb listener, or null when no
+  /// listener is registered. Used to remove the previous listener before
+  /// registering a new one on boot, ensuring the listener is not registered
+  /// multiple times (e.g. after a hot restart or test re-run).
+  static void Function()? _eventBreadcrumbRemover;
+
   @override
   void register() {
     // Nothing to bind: this provider only wires existing services together.
@@ -76,8 +82,14 @@ class SentryServiceProvider<T extends Model> extends ServiceProvider {
   /// The listener runs on every dispatch (magic's wildcard hook), so an
   /// event author opts in by implementing [ReportsBreadcrumb] and nothing
   /// else here has to learn about the event's type.
+  ///
+  /// Removes any existing listener before registering, ensuring the listener
+  /// is not registered multiple times on a second boot (e.g. after a hot
+  /// restart or test re-run).
   void _registerEventBreadcrumbs() {
-    Event.listenAny((event) {
+    _eventBreadcrumbRemover?.call();
+
+    _eventBreadcrumbRemover = Event.listenAny((event) {
       final Breadcrumb? crumb = EventBreadcrumbs.breadcrumbFor(event);
 
       if (crumb != null) {
