@@ -28,7 +28,7 @@ not loaded yet at the point Sentry needs its DSN.
 
 - **Dart SDK**: 3.6.0 or higher
 - **Flutter**: 3.27.0 or higher
-- **Magic Framework** installed and bootstrapped (`lib/config/app.dart` present)
+- **Magic Framework** 0.0.22 or higher, installed and bootstrapped (`lib/config/app.dart` present). 0.0.22 is the first release with `Event.listenAny` and `ReportsBreadcrumb`, which the event breadcrumbs call
 
 <a name="installing-the-package"></a>
 ## Installing the Package

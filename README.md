@@ -1,6 +1,6 @@
 # Magic Sentry Plugin
 
-Sentry error and performance monitoring for the [Magic Framework](https://magic.fluttersdk.com). Wraps `sentry_flutter` boot in a web-safe zone, reports the HTTP failures magic's `Http` facade swallows into `MagicResponse` values, keeps Sentry's scope user in step with `Auth.stateNotifier`, and registers a navigator observer on `MagicRouter`.
+Sentry error and performance monitoring for the [Magic Framework](https://magic.fluttersdk.com). Wraps `sentry_flutter` boot in a web-safe zone, reports the HTTP failures magic's `Http` facade swallows into `MagicResponse` values, keeps Sentry's scope user in step with `Auth.stateNotifier`, turns any event implementing magic's `ReportsBreadcrumb` into a breadcrumb, and registers a navigator observer on `MagicRouter`.
 
 **Version:** 0.0.1 · **Dart:** >=3.6.0 · **Flutter:** >=3.27.0
 
@@ -45,6 +45,7 @@ Future<void> _boot() async {
 lib/
 ├── magic_sentry.dart          # Barrel export
 └── src/
+    ├── event_breadcrumbs.dart          # ReportsBreadcrumb event -> Sentry breadcrumb
     ├── magic_sentry.dart               # MagicSentry.run + error widget breadcrumb
     ├── sentry_service_provider.dart    # SentryServiceProvider<T>: wires boot()
     ├── sentry_network_interceptor.dart # MagicNetworkInterceptor -> Sentry events/breadcrumbs
