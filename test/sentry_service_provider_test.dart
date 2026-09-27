@@ -110,6 +110,18 @@ class _SpyNetworkDriver implements NetworkDriver {
       throw UnimplementedError();
 }
 
+/// An event that opts into the breadcrumb trail.
+class _TestEventBreadcrumb extends MagicEvent implements ReportsBreadcrumb {
+  @override
+  String get breadcrumbCategory => 'test.category';
+
+  @override
+  String get breadcrumbMessage => 'Test message';
+
+  @override
+  Map<String, Object?> get breadcrumbData => {};
+}
+
 /// Locks what [SentryServiceProvider.boot] wires, and when.
 ///
 /// Everything it does is gated on `Sentry.isEnabled`, which is false in
@@ -262,6 +274,38 @@ void main() {
         expect(log.entries.single.level, 'warning');
         expect(log.entries.single.message, contains('sentry'));
         expect(log.entries.single.context, contains('stackTrace'));
+      });
+
+      test(
+          'registers the event breadcrumb listener once, not duplicated on '
+          'second boot', () async {
+        Magic.app.setInstance('network', _SpyNetworkDriver());
+
+        // 1. Boot the provider a first time.
+        await SentryServiceProvider(MagicApp.instance).boot();
+
+        // 2. Boot the provider a second time (simulating hot restart or test
+        // re-run).
+        await SentryServiceProvider(MagicApp.instance).boot();
+
+        // 3. Dispatch a single breadcrumb event.
+        await Event.dispatch(_TestEventBreadcrumb());
+
+        // 4. Collect the recorded breadcrumbs.
+        List<Breadcrumb> breadcrumbs = const [];
+        await Sentry.configureScope(
+          (scope) => breadcrumbs = scope.breadcrumbs,
+        );
+
+        // 5. Verify only one breadcrumb was recorded, not two (from the
+        // duplicate listener).
+        expect(
+          breadcrumbs,
+          hasLength(1),
+          reason: 'the event breadcrumb listener must not be registered '
+              'twice on a second boot',
+        );
+        expect(breadcrumbs.single.category, 'test.category');
       });
     });
   });

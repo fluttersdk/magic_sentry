@@ -20,9 +20,10 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  # Auth.stateNotifier and MagicRouter.instance.addObserver both land at
-  # 0.0.21; see the published API check under doc/getting-started/installation.md.
-  magic: ^0.0.21
+  # Auth.stateNotifier and MagicRouter.instance.addObserver land at 0.0.21;
+  # Event.listenAny and ReportsBreadcrumb, which the event breadcrumbs need,
+  # land at 0.0.22.
+  magic: ^0.0.22
   sentry_flutter: ^9.27.0
   sentry_dio: ^9.27.0
 

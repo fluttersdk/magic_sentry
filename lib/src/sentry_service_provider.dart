@@ -3,6 +3,7 @@ import 'package:magic/magic.dart';
 import 'package:sentry_dio/sentry_dio.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
+import 'event_breadcrumbs.dart';
 import 'sentry_network_interceptor.dart';
 import 'sentry_user_context.dart';
 
@@ -46,6 +47,12 @@ class SentryServiceProvider<T extends Model> extends ServiceProvider {
   /// the host app supplied no [userId].
   final SentryUserContext<T>? _userContext;
 
+  /// The remover callback for the event breadcrumb listener, or null when no
+  /// listener is registered. Used to remove the previous listener before
+  /// registering a new one on boot, so a second boot in the same isolate (a
+  /// test suite booting the provider again) does not register it twice.
+  static void Function()? _eventBreadcrumbRemover;
+
   @override
   void register() {
     // Nothing to bind: this provider only wires existing services together.
@@ -59,6 +66,7 @@ class SentryServiceProvider<T extends Model> extends ServiceProvider {
 
     _registerNetworkInterceptor();
     _userContext?.install();
+    _registerEventBreadcrumbs();
 
     // Registered here rather than in `main()` because `MagicRouter` refuses
     // an observer once it has built its `routerConfig`, and that build
@@ -66,6 +74,27 @@ class SentryServiceProvider<T extends Model> extends ServiceProvider {
     // every event is filed against a route this app never names, because
     // magic drives go_router and the SDK cannot see through it.
     MagicRouter.instance.addObserver(SentryNavigatorObserver());
+  }
+
+  /// Record a Sentry breadcrumb for every dispatched [ReportsBreadcrumb]
+  /// event.
+  ///
+  /// The listener runs on every dispatch (magic's wildcard hook), so an
+  /// event author opts in by implementing [ReportsBreadcrumb] and nothing
+  /// else here has to learn about the event's type.
+  ///
+  /// Removes any existing listener before registering, so a second boot in
+  /// the same isolate does not register it twice.
+  void _registerEventBreadcrumbs() {
+    _eventBreadcrumbRemover?.call();
+
+    _eventBreadcrumbRemover = Event.listenAny((event) {
+      final Breadcrumb? crumb = EventBreadcrumbs.breadcrumbFor(event);
+
+      if (crumb != null) {
+        Sentry.addBreadcrumb(crumb);
+      }
+    });
   }
 
   /// Attach Sentry to the network driver, in two layers.
