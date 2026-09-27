@@ -49,8 +49,8 @@ class SentryServiceProvider<T extends Model> extends ServiceProvider {
 
   /// The remover callback for the event breadcrumb listener, or null when no
   /// listener is registered. Used to remove the previous listener before
-  /// registering a new one on boot, ensuring the listener is not registered
-  /// multiple times (e.g. after a hot restart or test re-run).
+  /// registering a new one on boot, so a second boot in the same isolate (a
+  /// test suite booting the provider again) does not register it twice.
   static void Function()? _eventBreadcrumbRemover;
 
   @override
@@ -83,9 +83,8 @@ class SentryServiceProvider<T extends Model> extends ServiceProvider {
   /// event author opts in by implementing [ReportsBreadcrumb] and nothing
   /// else here has to learn about the event's type.
   ///
-  /// Removes any existing listener before registering, ensuring the listener
-  /// is not registered multiple times on a second boot (e.g. after a hot
-  /// restart or test re-run).
+  /// Removes any existing listener before registering, so a second boot in
+  /// the same isolate does not register it twice.
   void _registerEventBreadcrumbs() {
     _eventBreadcrumbRemover?.call();
 
