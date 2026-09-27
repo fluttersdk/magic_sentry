@@ -8,6 +8,10 @@ All notable changes to this project will be documented in this file.
 
 - `EventBreadcrumbs.breadcrumbFor`: maps any dispatched event that implements magic's `ReportsBreadcrumb` (`breadcrumbCategory`, `breadcrumbMessage`, `breadcrumbData`) to a Sentry breadcrumb, null for every other event. `SentryServiceProvider.boot` wires it through `Event.listenAny`, gated on `Sentry.isEnabled` like the provider's other hooks, so any package or app event that opts in (`magic_deeplink`'s `DeeplinkOpened` and `DeeplinkNavigating`, for example) shows up in the breadcrumb trail with no extra wiring. (`lib/src/event_breadcrumbs.dart`)
 
+### Changed
+
+- `magic` floor moves `^0.0.21` to `^0.0.22`: `Event.listenAny` and `ReportsBreadcrumb`, which the event breadcrumbs call, first ship in magic 0.0.22. (`pubspec.yaml`)
+
 ### Fixed
 
 - `SentryServiceProvider._registerEventBreadcrumbs()` now keeps the remover callback returned by `Event.listenAny()` and calls it before registering a new listener. A second boot in the same isolate (a test suite) no longer registers the listener multiple times, which used to double-record breadcrumbs from the same event.
