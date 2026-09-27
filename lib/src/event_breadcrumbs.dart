@@ -8,10 +8,10 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 /// `SentryUserContext.userFor`: an event opts in by implementing
 /// [ReportsBreadcrumb], and nothing else (this package, the listener, any
 /// other event) has to know that contract exists.
-class EventBreadcrumbs {
-  // Prevent instantiation: every member is static.
-  EventBreadcrumbs._();
-
+///
+/// `abstract final`: every member is static, so it can be neither
+/// instantiated nor extended, without a private constructor nothing calls.
+abstract final class EventBreadcrumbs {
   /// The breadcrumb for [event], or null when [event] does not implement
   /// [ReportsBreadcrumb].
   ///
