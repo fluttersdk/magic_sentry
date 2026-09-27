@@ -1,0 +1,93 @@
+# Dependabot config for fluttersdk/magic_sentry
+#
+# Two ecosystems: the package's own pub dependencies, and the actions its
+# workflows pin. There is no example/ here, so there is no third bucket.
+#
+# Grouping policy matches the rest of the ecosystem: minor + patch roll up into
+# one weekly PR per bucket so the queue stays short, and a major opens its own
+# PR because a breaking change earns a human. `dependabot-auto-merge.yml` arms
+# auto-merge for github-actions minor + patch only; everything else waits.
+
+version: 2
+
+updates:
+  # Package deps (pubspec.yaml at /)
+  - package-ecosystem: pub
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Istanbul
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - pub
+    assignees:
+      - anilcancakir
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      # The sibling packages this one is built on. They move together and
+      # they move often, so a separate bucket keeps a routine sibling bump out
+      # of the third-party review.
+      fluttersdk:
+        patterns:
+          - magic
+          - magic_*
+          - fluttersdk_*
+        update-types:
+          - minor
+          - patch
+      # sentry_flutter and sentry_dio ship from one monorepo (getsentry/
+      # sentry-dart) on one version line, and both are pinned to the same
+      # caret, so they move in one PR.
+      sentry:
+        patterns:
+          - sentry_*
+        update-types:
+          - minor
+          - patch
+      third-party:
+        patterns:
+          - "*"
+        exclude-patterns:
+          - magic
+          - magic_*
+          - fluttersdk_*
+          - sentry_*
+        update-types:
+          - minor
+          - patch
+
+  # GitHub Actions under .github/workflows/
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Istanbul
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - github-actions
+    assignees:
+      - anilcancakir
+    commit-message:
+      prefix: ci
+      include: scope
+    groups:
+      actions-official:
+        patterns:
+          - actions/*
+      release-stack:
+        patterns:
+          - dart-lang/*
+          - subosito/*
+          - softprops/*
+          - codecov/*
+      dependabot-helpers:
+        patterns:
+          - dependabot/*

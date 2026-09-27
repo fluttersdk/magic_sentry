@@ -24,6 +24,7 @@ package-specific CLI provider:
 lib/
 ├── magic_sentry.dart          # Barrel export
 └── src/
+    ├── event_breadcrumbs.dart          # ReportsBreadcrumb event -> Sentry breadcrumb
     ├── magic_sentry.dart               # MagicSentry.run + error widget breadcrumb
     ├── sentry_service_provider.dart    # SentryServiceProvider<T>: wires boot()
     ├── sentry_network_interceptor.dart # MagicNetworkInterceptor -> Sentry events/breadcrumbs
@@ -55,8 +56,9 @@ appRunner: _boot)` → one zone opens (`runZonedGuarded`) → `WidgetsFlutterBin
 .ensureInitialized()` → `Env.load()` → `SentryFlutter.init(configure,
 appRunner: _boot)` → `_boot` runs `Magic.init(...)` then `runApp(...)` →
 `SentryServiceProvider.boot()` (registered like any other provider) wires the
-network interceptor, the user context, and the navigator observer, all gated
-on `Sentry.isEnabled`.
+network interceptor, the user context, the event breadcrumb listener
+(`Event.listenAny` into `EventBreadcrumbs.breadcrumbFor`) and the navigator
+observer, all gated on `Sentry.isEnabled`.
 
 **User reporting is opt-in and generic.** This package has no model of its
 own and never invents a "team" concept: `SentryServiceProvider<T>` takes
@@ -72,6 +74,7 @@ After ANY source code change, sync **before committing**:
 1. **`CHANGELOG.md`**: Add entry under `[Unreleased]` section
 2. **`README.md`**: Update if features, API, or usage changes
 3. **`doc/`**: Update relevant documentation files
+4. **`../magic/skills/magic-framework/references/plugin-sentry.md`**: the agent-facing reference lives in the `magic` repo, not here (`.pubignore` keeps this `CLAUDE.md` and `.claude/` out of the published archive). Update it when the public API moves, and move its first-line stamp at release
 
 ## Development Flow (TDD)
 
@@ -118,3 +121,6 @@ Every feature, fix, or refactor must go through the red-green-refactor cycle:
 ## CI
 
 - `ci.yml`: push/PR → `flutter pub get` → `flutter analyze --no-fatal-infos` → `dart format --set-exit-if-changed` → `flutter test --coverage` → codecov upload
+- `publish.yml`: a bare `X.Y.Z` tag → validate (analyze, format, test) → OIDC publish to pub.dev. 0.0.1 was uploaded by hand, since OIDC cannot create a package; every later version publishes from its tag once automated publishing is enabled on the package's pub.dev admin page
+- `dependabot-auto-merge.yml`: arms auto-merge for GitHub Actions minor and patch bumps only
+- Default branch is `main`. Release: `release/X.Y.Z` branch, `chore(release): X.Y.Z` PR, tag the merge commit (`/release` walks it)

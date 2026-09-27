@@ -1,0 +1,64 @@
+name: Feature Request
+description: Suggest a new feature or enhancement for Magic Sentry Plugin
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have an idea for the Sentry plugin? We'd love to hear it. This package
+        stays generic on purpose: it knows no app's model, team or tags. If the
+        idea is specific to one app, say how it would reach the package through
+        a callback (`userExtras`, a `ReportsBreadcrumb` event) rather than a
+        concept of its own.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The Problem
+      description: What are you unable to do today?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed Solution
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Boot (MagicSentry.run)
+        - HTTP reporting (SentryNetworkInterceptor)
+        - User context (SentryUserContext)
+        - Breadcrumbs (EventBreadcrumbs, navigation)
+        - Service provider / install
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: sketch
+    attributes:
+      label: API Sketch
+      description: |
+        Optional, but it helps. For example:
+
+        (app) => SentryServiceProvider<User>(
+          app,
+          userId: (user) => user.id,
+          userExtras: (user) => {'plan': user.plan},
+        ),
+      render: dart
+
+  - type: textarea
+    id: usecase
+    attributes:
+      label: Use Case
+      placeholder: "When a background sync fails, I need..."
+    validations:
+      required: true
