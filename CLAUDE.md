@@ -2,7 +2,7 @@
 
 Sentry error and performance monitoring for the Magic Framework.
 
-**Version:** 0.0.1 · **Dart:** >=3.6.0 · **Flutter:** >=3.27.0
+**Version:** 0.0.2 · **Dart:** >=3.6.0 · **Flutter:** >=3.27.0
 
 ## Commands
 
