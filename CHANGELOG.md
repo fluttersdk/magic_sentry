@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.0.2] - 2026-09-29
+
+### Changed
+
+- **Every sibling floor names this batch's release.** `magic` moves `^0.0.22` to `^0.0.24`. The old range already admitted the new version, so a fresh `pub get` resolves nothing differently; what changes is that the floor names the release this package is verified against. The real requirement is still 0.0.22, the first release with `Event.listenAny` and `ReportsBreadcrumb`. magic 0.0.24 removes `MagicController.onRefreshUI` (BREAKING); this package calls it nowhere in `lib/` or `test/`, so nothing here moves with it. (`pubspec.yaml`)
+- **The README and the installation guide name the event breadcrumbs and the magic requirement.** The README lists `ReportsBreadcrumb` events among what the plugin reports, and its layout names `event_breadcrumbs.dart`; the installation guide states magic 0.0.22 or higher and why. (`README.md`, `doc/getting-started/installation.md`)
+- **The published archive leaves out the repository's tooling.** A `.pubignore` keeps `.claude/`, `CLAUDE.md`, `.github/` and IDE folders out of the archive. A `.pubignore` replaces `.gitignore` for pub rather than adding to it, so it also names the local-only files `.gitignore` covered (`pubspec_overrides.yaml`, `pubspec.lock`, `coverage/`, `.env`). (`.pubignore`)
+
 ## [0.0.1] - 2026-09-27
 
 Initial release.
