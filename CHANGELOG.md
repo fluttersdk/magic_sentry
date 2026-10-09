@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.0.3] - 2026-10-09
+
+### Changed
+
+- **Every sibling floor names this batch's release.** `magic` moves `^0.0.24` to `^0.0.27`. The old range already admitted the new version, so a fresh `pub get` resolves nothing differently; what changes is that the floor names the release this package is verified against. None of magic 0.0.25 to 0.0.27 is breaking. (`pubspec.yaml`)
+
 ## [0.0.2] - 2026-09-29
 
 ### Changed
