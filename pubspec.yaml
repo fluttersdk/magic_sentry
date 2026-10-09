@@ -1,6 +1,6 @@
 name: magic_sentry
 description: Sentry error and performance monitoring for the Magic Framework.
-version: 0.0.2
+version: 0.0.3
 homepage: https://magic.fluttersdk.com/sentry
 documentation: https://magic.fluttersdk.com/packages/sentry/getting-started/installation
 repository: https://github.com/fluttersdk/magic_sentry
@@ -22,9 +22,9 @@ dependencies:
     sdk: flutter
   # Auth.stateNotifier and MagicRouter.instance.addObserver land at 0.0.21;
   # Event.listenAny and ReportsBreadcrumb, which the event breadcrumbs need,
-  # land at 0.0.22. The floor names 0.0.24, the newest release when the
-  # 2026-09-29 batch re-pinned every sibling.
-  magic: ^0.0.24
+  # land at 0.0.22. The floor names 0.0.27, the newest release when the
+  # 2026-10-09 batch re-pinned every sibling.
+  magic: ^0.0.27
   sentry_flutter: ^9.27.0
   sentry_dio: ^9.27.0
 
