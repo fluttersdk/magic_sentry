@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.0.4] - 2026-10-13
+
+### Changed
+
+- **Every sibling floor names this batch's release.** `magic` moves `^0.0.27` to `^0.0.28`. The old range already admitted the new version, so a fresh `pub get` resolves nothing differently; what changes is that the floor names the release this package is verified against. magic 0.0.28 is not breaking: it moves its own floors to artisan 0.0.20 and wind 1.8.4 and its devtools install pins, none of which this package calls. The issue template's magic version placeholder moves from `0.0.22` to `0.0.28`. (`pubspec.yaml`, `.github/ISSUE_TEMPLATE/bug_report.yml`)
+
 ## [0.0.3] - 2026-10-09
 
 ### Changed
