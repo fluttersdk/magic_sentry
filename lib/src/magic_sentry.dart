@@ -4,6 +4,8 @@ import 'package:flutter/widgets.dart';
 import 'package:magic/magic.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
+import 'sentry_token_scrubber.dart';
+
 /// Boots Sentry, then the app, inside one zone.
 ///
 /// Call this as the whole body of `main()`, before `Magic.init`:
@@ -44,6 +46,12 @@ class MagicSentry {
   /// after that, typically `Magic.init(...)` followed by `runApp(...)`. An
   /// empty DSN inside [configure] leaves the SDK inert and [appRunner] still
   /// runs: see `lib/config/sentry.dart`'s `sentryDsn`.
+  ///
+  /// [SentryTokenScrubber] is installed AFTER [configure] returns, so it runs
+  /// first in `beforeSend`, `beforeSendTransaction` and `beforeBreadcrumb` and
+  /// hands its masked value to whichever of those hooks [configure] set. A hook
+  /// assigned any later than this (after `SentryFlutter.init`) replaces the
+  /// scrubber, so set app hooks inside [configure].
   static void run({
     required FutureOr<void> Function(SentryFlutterOptions options) configure,
     required FutureOr<void> Function() appRunner,
@@ -62,7 +70,11 @@ class MagicSentry {
         // file this loaded is the one that sticks for the rest of the run.
         await Env.load();
 
-        await SentryFlutter.init(configure, appRunner: appRunner);
+        await SentryFlutter.init((SentryFlutterOptions options) async {
+          await configure(options);
+
+          SentryTokenScrubber.install(options);
+        }, appRunner: appRunner);
       },
       (Object error, StackTrace stackTrace) async {
         // Both halves of what Sentry's own zone handler does: report it, then

@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **`SentryTokenScrubber` keeps URL-borne tokens out of Sentry.** On web the SDK sets `request.url` to `window.location` and the transaction to the raw pathname, and `sentry_dio` breadcrumbs and spans keep the API path, so `/invitations/<token>/accept` and `/auth/reset-password?token=` reached Sentry. The scrubber masks query values whose key contains `token`, `password`, `secret`, `signature`, `credential` or `api_key`; path segments bound to a magic route param whose name contains `token` (read from `MagicRouter.instance.routes`); and, on `http` breadcrumb and span urls, any 32+ character `[A-Za-z0-9_-]` segment that is left after `normalizeEndpoint`. It covers `request.url`, `request.queryString`, `request.fragment`, the transaction name, `contexts.trace`, breadcrumb `message` and `data`, and span descriptions and data, and only masks, never drops. `MagicSentry.run` installs it after `configure`, so it runs first in `beforeSend`, `beforeSendTransaction` and `beforeBreadcrumb` and then hands its result to any hook the app set. (`lib/src/sentry_token_scrubber.dart`, `lib/src/magic_sentry.dart`, `lib/magic_sentry.dart`)
+
+### Changed
+
+- **`SentryNetworkInterceptor` reports a scrubbed endpoint.** The message, fingerprint and `http_failure` context of a captured failure now carry `SentryTokenScrubber.scrubApiUrl`, so an invitation call that fails with a 500 groups under `/api/v1/invitations/{token}/accept` instead of carrying the token. `normalizeEndpoint` is production API now and loses its `@visibleForTesting`. (`lib/src/sentry_network_interceptor.dart`)
+
 ## [0.0.4] - 2026-10-13
 
 ### Changed

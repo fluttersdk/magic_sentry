@@ -28,6 +28,7 @@ lib/
     ├── magic_sentry.dart               # MagicSentry.run + error widget breadcrumb
     ├── sentry_service_provider.dart    # SentryServiceProvider<T>: wires boot()
     ├── sentry_network_interceptor.dart # MagicNetworkInterceptor -> Sentry events/breadcrumbs
+    ├── sentry_token_scrubber.dart      # beforeSend/Transaction/Breadcrumb: masks URL-borne tokens
     └── sentry_user_context.dart        # Auth.stateNotifier -> Sentry scope user
 install.yaml                   # Plugin manifest: config publish, provider injection
 assets/stubs/install/sentry_config.stub  # configureSentry, published to a consumer's

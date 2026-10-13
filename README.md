@@ -49,6 +49,7 @@ lib/
     ├── magic_sentry.dart               # MagicSentry.run + error widget breadcrumb
     ├── sentry_service_provider.dart    # SentryServiceProvider<T>: wires boot()
     ├── sentry_network_interceptor.dart # MagicNetworkInterceptor -> Sentry events/breadcrumbs
+    ├── sentry_token_scrubber.dart      # Masks URL-borne tokens before anything is sent
     └── sentry_user_context.dart        # Auth.stateNotifier -> Sentry scope user
 install.yaml                   # Plugin manifest: config publish, provider injection
 assets/stubs/install/sentry_config.stub  # configureSentry, published to a consumer's
@@ -68,5 +69,17 @@ barrel and that local file) an ambiguous import.
 - **`sendDefaultPii` and session replay are never turned on by this package.** An app that wants either does so explicitly in its own `configure` callback.
 - **HTTP double-reporting is avoided on purpose.** `SentryServiceProvider` disables `sentry_dio`'s own `captureFailedRequests`, since `SentryNetworkInterceptor` is the layer that decides event vs breadcrumb.
 - **User reporting is opt-in and generic.** This package has no model of its own; pass `userId` (plus `userEmail` when your model has one, and optionally `userExtras`) for your own `Authenticatable` model, or leave `userId` out to skip user reporting entirely.
+
+## Token scrubbing
+
+A magic route such as `/invitations/:token/accept` puts a credential in the path and a reset link puts one in the query. On web the SDK copies `window.location` into `request.url` and the pathname into the transaction name, and `sentry_dio` keeps the API path on every breadcrumb and span. `MagicSentry.run` therefore installs `SentryTokenScrubber` after your `configure` callback, in front of `beforeSend`, `beforeSendTransaction` and `beforeBreadcrumb`:
+
+- **Query values** whose key contains `token`, `password`, `secret`, `signature`, `credential` or `api_key` become `[Filtered]`; the key and every other pair stay.
+- **Route-bound segments:** a path segment sitting where a registered magic route has a param whose name contains `token` becomes `[Filtered]`. The routes are read from `MagicRouter.instance.routes`.
+- **Opaque API segments:** an `http` breadcrumb or span url is reduced like `SentryNetworkInterceptor.normalizeEndpoint` does (query dropped, numeric and UUID segments become `{id}`), and any remaining segment of 32 or more `[A-Za-z0-9_-]` characters becomes `{token}`. The interceptor's own events use the same reduction.
+
+It covers `request.url`, `request.queryString`, `request.fragment`, the transaction name, `contexts.trace`, breadcrumb `message` and `data`, and span descriptions and data. It only masks, never drops. The `email` query key and numeric ids are left alone.
+
+Set your own hooks inside `configure`: the scrubber runs first and hands its result to them. A hook assigned after `SentryFlutter.init` replaces the scrubber. A transaction's deprecated `extra` map (the same data `setData` on a transaction also writes to `contexts.trace.data`) is not scrubbed, so keep tokens out of transaction data.
 
 See [doc/getting-started/installation.md](doc/getting-started/installation.md) for configuration details.

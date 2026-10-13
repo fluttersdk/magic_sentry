@@ -77,6 +77,70 @@ void main() {
       );
     });
 
+    test('scrubs first and then runs the hooks configure set', () async {
+      final List<String?> seenByApp = <String?>[];
+      final completer = Completer<SentryEvent?>();
+      late SentryFlutterOptions configured;
+
+      MagicSentry.run(
+        configure: (options) {
+          configured = options;
+          options
+            ..dsn = 'https://public@o0.ingest.sentry.io/0'
+            ..beforeSend = (SentryEvent event, Hint hint) {
+              seenByApp.add(event.request?.url);
+
+              return event;
+            };
+        },
+        appRunner: () async {
+          // The hooks the SDK would call, read back from the live options.
+          final SentryEvent? event = await configured.beforeSend!(
+            SentryEvent(
+              request: SentryRequest(
+                url:
+                    'https://app.test/auth/reset-password?token=abc&email=a%40b.c',
+              ),
+            ),
+            Hint(),
+          );
+
+          completer.complete(event);
+        },
+      );
+
+      final SentryEvent? sent =
+          await completer.future.timeout(const Duration(seconds: 5));
+
+      expect(seenByApp, hasLength(1));
+      expect(seenByApp.single, isNot(contains('token=abc')));
+      expect(seenByApp.single, contains('email=a%40b.c'));
+      expect(sent!.request!.url, seenByApp.single);
+    });
+
+    test('wires the transaction and breadcrumb scrubbers too', () async {
+      final completer = Completer<(bool, bool)>();
+      late SentryFlutterOptions configured;
+
+      MagicSentry.run(
+        configure: (options) {
+          configured = options;
+          options.dsn = 'https://public@o0.ingest.sentry.io/0';
+        },
+        appRunner: () {
+          completer.complete((
+            configured.beforeSendTransaction != null,
+            configured.beforeBreadcrumb != null,
+          ));
+        },
+      );
+
+      expect(
+        await completer.future.timeout(const Duration(seconds: 5)),
+        (true, true),
+      );
+    });
+
     test('a zone error from appRunner does not crash the isolate', () async {
       // There is no bound transport here to assert Sentry actually SENT the
       // error, so this pins the weaker but load-bearing half: the handler
