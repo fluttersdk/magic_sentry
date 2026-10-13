@@ -1,7 +1,12 @@
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:magic/magic.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
 import 'sentry_network_interceptor.dart';
+
+/// A registered route with at least one `*token*` param: the pattern that
+/// finds it in a text and the indexes of the segments to mask.
+typedef _TokenRoute = ({RegExp shape, List<int> tokenSegments});
 
 /// Masks URL-borne tokens in everything Sentry is about to send.
 ///
@@ -22,18 +27,20 @@ import 'sentry_network_interceptor.dart';
 ///    read from `MagicRouter.instance.routes` at scrub time, so a route added
 ///    after boot is covered too.
 /// 3. OPAQUE API SEGMENTS. A breadcrumb or span URL is an API path, which the
-///    app's routes do not describe. It is reduced with
-///    [SentryNetworkInterceptor.normalizeEndpoint] (query dropped, numeric and
-///    UUID segments become `{id}`), then any remaining segment of 32 or more
-///    characters from `[A-Za-z0-9_-]` becomes `{token}`. The UUID exemption
-///    comes from running after the reduction: a UUID is gone by then, while a
-///    32-character hex string with no hyphens is exactly what a token looks
-///    like and is masked.
+///    app's routes do not describe, so any segment of 32 or more characters
+///    from `[A-Za-z0-9_-]` becomes `{token}`. A UUID is exempt, since it is an
+///    id and not a credential; a 32-character hex string with no hyphens is
+///    exactly what a token looks like and is masked. Only the interceptor's
+///    fingerprint, through [scrubApiUrl], also collapses ids to `{id}`.
 ///
 /// Every hook MASKS and never drops: an event or breadcrumb the scrubber does
 /// not recognise passes through unchanged. A numeric id and the `email` query
 /// key are deliberately left alone; masking them would blind debugging for no
 /// credential gained.
+///
+/// FAIL CLOSED. The SDK catches a throwing `beforeSend` and sends the event it
+/// was given, half scrubbed. So a hook that fails here replaces every field it
+/// would have scrubbed with `[Filtered]` and still returns the event.
 abstract final class SentryTokenScrubber {
   static const String _filtered = '[Filtered]';
 
@@ -49,7 +56,16 @@ abstract final class SentryTokenScrubber {
     caseSensitive: false,
   );
 
-  static final RegExp _opaqueSegment = RegExp(r'^[A-Za-z0-9_-]{32,}$');
+  /// A path segment of 32 or more token characters, with the slash that
+  /// introduces it kept in a group so no lookbehind is needed (Safari before
+  /// 16.4 throws a SyntaxError on one, and this runs in the web client).
+  static final RegExp _opaquePathSegment = RegExp(
+    r'(/)([A-Za-z0-9_-]{32,})(?=$|[/?#&\s])',
+  );
+
+  static List<String> _compiledPaths = <String>[];
+
+  static List<_TokenRoute> _compiledRoutes = <_TokenRoute>[];
 
   /// Puts the scrubber in front of every hook the app has already set.
   ///
@@ -92,9 +108,16 @@ abstract final class SentryTokenScrubber {
   }
 
   /// Masks [event] in place: `request.url`, `request.queryString`,
-  /// `request.fragment`, `transaction` and `contexts.trace`.
+  /// `request.fragment`, `transaction`, `contexts.trace`, every exception
+  /// `value` and the message, since an error text can embed the current URI.
+  ///
+  /// Fails closed: if scrubbing throws, those fields are replaced wholesale.
   static SentryEvent beforeSend(SentryEvent event, Hint hint) {
-    _scrubEvent(event);
+    try {
+      _scrubEvent(event);
+    } on Object {
+      _maskEvent(event);
+    }
 
     return event;
   }
@@ -108,23 +131,33 @@ abstract final class SentryTokenScrubber {
     SentryTransaction transaction,
     Hint hint,
   ) {
-    _scrubEvent(transaction);
+    try {
+      _scrubEvent(transaction);
 
-    for (final SentrySpan span in transaction.spans) {
-      final bool http = span.context.operation.startsWith('http');
-      final String? description = span.context.description;
+      for (final SentrySpan span in transaction.spans) {
+        final bool http = span.context.operation.startsWith('http');
+        final String? description = span.context.description;
 
-      if (description != null) {
-        span.context.description = http
-            ? _scrubHttpDescription(description)
-            : _scrubLocation(description);
+        if (description != null) {
+          span.context.description = http
+              ? _scrubHttpDescription(description)
+              : _scrubLocation(description);
+        }
+
+        // Written through the map, not `setData`: a finished span, which every
+        // span in a sent transaction is, ignores `setData`.
+        for (final MapEntry<String, dynamic> entry
+            in span.data.entries.toList()) {
+          span.data[entry.key] =
+              _scrubValue(entry.key, entry.value, http: http);
+        }
       }
+    } on Object {
+      _maskEvent(transaction);
 
-      // Written through the map, not `setData`: a finished span, which every
-      // span in a sent transaction is, ignores `setData`.
-      for (final MapEntry<String, dynamic> entry
-          in span.data.entries.toList()) {
-        span.data[entry.key] = _scrubValue(entry.key, entry.value, http: http);
+      for (final SentrySpan span in transaction.spans) {
+        span.context.description = _maskedIfSet(span.context.description);
+        span.data.updateAll((String key, dynamic value) => _maskValue(value));
       }
     }
 
@@ -134,39 +167,43 @@ abstract final class SentryTokenScrubber {
   /// Masks [crumb] in place: its `message` and every string in its `data`.
   ///
   /// A null [crumb] stays null. An `http` breadcrumb (by `type` or `category`)
-  /// also has its `url` reduced as an API path.
+  /// also has its `url` checked for an opaque path segment. Fails closed: if
+  /// scrubbing throws, the message and every string in `data` are replaced.
   static Breadcrumb? beforeBreadcrumb(Breadcrumb? crumb, Hint hint) {
     if (crumb == null) {
       return null;
     }
 
-    final bool http = crumb.type == 'http' || crumb.category == 'http';
-    final Map<String, dynamic>? data = crumb.data;
+    try {
+      final bool http = crumb.type == 'http' || crumb.category == 'http';
+      final Map<String, dynamic>? data = crumb.data;
 
-    crumb.message = _locationOrNull(crumb.message);
+      crumb.message = _locationOrNull(crumb.message);
 
-    if (data != null) {
-      crumb.data = _scrubMap(data, http: http);
+      if (data != null) {
+        crumb.data = _scrubMap(data, http: http);
+      }
+    } on Object {
+      crumb.message = _maskedIfSet(crumb.message);
+      crumb.data = crumb.data?.map(
+        (String key, dynamic value) => MapEntry(key, _maskValue(value)),
+      );
     }
 
     return crumb;
   }
 
-  /// Reduces an API [url] to an endpoint that is safe to send and to group on.
+  /// Reduces an API [url] to an endpoint that is safe to group on.
   ///
   /// The query is dropped, numeric and UUID segments become `{id}`, a segment
   /// bound to a magic route token param is masked, and any other segment of 32
-  /// or more `[A-Za-z0-9_-]` characters becomes `{token}`.
+  /// or more `[A-Za-z0-9_-]` characters becomes `{token}`. Meant for the
+  /// interceptor's fingerprint and endpoint; a breadcrumb or span url keeps its
+  /// ids and query, and is only masked.
   static String scrubApiUrl(String url) {
-    final String endpoint = SentryNetworkInterceptor.normalizeEndpoint(
-      _scrubLocation(url),
+    return _maskOpaqueSegments(
+      SentryNetworkInterceptor.normalizeEndpoint(_scrubLocation(url)),
     );
-
-    return endpoint
-        .split('/')
-        .map((String segment) =>
-            _opaqueSegment.hasMatch(segment) ? _opaqueMask : segment)
-        .join('/');
   }
 
   static void _scrubEvent(SentryEvent event) {
@@ -179,6 +216,18 @@ abstract final class SentryTokenScrubber {
     }
 
     event.transaction = _locationOrNull(event.transaction);
+
+    // An error message routinely embeds the URI the app was on.
+    for (final SentryException exception in event.exceptions ?? const []) {
+      exception.value = _locationOrNull(exception.value);
+    }
+
+    final SentryMessage? message = event.message;
+
+    if (message != null) {
+      message.formatted = _scrubLocation(message.formatted);
+      message.template = _locationOrNull(message.template);
+    }
 
     final SentryTraceContext? trace = event.contexts.trace;
 
@@ -195,14 +244,54 @@ abstract final class SentryTokenScrubber {
     }
   }
 
+  /// Replaces what [_scrubEvent] would have scrubbed, without reading any of
+  /// it back through the scrubber that just failed.
+  static void _maskEvent(SentryEvent event) {
+    final SentryRequest? request = event.request;
+
+    if (request != null) {
+      request.url = _maskedIfSet(request.url);
+      request.queryString = _maskedIfSet(request.queryString);
+      request.fragment = _maskedIfSet(request.fragment);
+    }
+
+    event.transaction = _maskedIfSet(event.transaction);
+
+    for (final SentryException exception in event.exceptions ?? const []) {
+      exception.value = _maskedIfSet(exception.value);
+    }
+
+    final SentryMessage? message = event.message;
+
+    if (message != null) {
+      message.formatted = _filtered;
+      message.template = _maskedIfSet(message.template);
+    }
+
+    final SentryTraceContext? trace = event.contexts.trace;
+
+    if (trace != null) {
+      trace.description = _maskedIfSet(trace.description);
+      trace.data = trace.data?.map(
+        (String key, dynamic value) => MapEntry(key, _maskValue(value)),
+      );
+    }
+  }
+
+  static String? _maskedIfSet(String? text) => text == null ? null : _filtered;
+
+  /// Numbers and booleans carry no URL, so they survive a fail-closed mask.
+  static dynamic _maskValue(dynamic value) =>
+      value is num || value is bool ? value : _filtered;
+
   static Map<String, dynamic> _scrubMap(
-    Map<String, dynamic> data, {
+    Map<dynamic, dynamic> data, {
     required bool http,
   }) {
-    return data.map(
-      (String key, dynamic value) =>
-          MapEntry(key, _scrubValue(key, value, http: http)),
-    );
+    return <String, dynamic>{
+      for (final MapEntry<dynamic, dynamic> entry in data.entries)
+        '${entry.key}': _scrubValue('${entry.key}', entry.value, http: http),
+    };
   }
 
   static dynamic _scrubValue(
@@ -215,10 +304,12 @@ abstract final class SentryTokenScrubber {
         return _maskQueryString(value);
       }
 
-      return http && key == 'url' ? scrubApiUrl(value) : _scrubLocation(value);
+      return http && key == 'url'
+          ? _scrubHttpUrl(value)
+          : _scrubLocation(value);
     }
 
-    if (value is Map<String, dynamic>) {
+    if (value is Map) {
       return _scrubMap(value, http: http);
     }
 
@@ -236,7 +327,22 @@ abstract final class SentryTokenScrubber {
     final int urlStart = description.lastIndexOf(' ') + 1;
 
     return description.substring(0, urlStart) +
-        scrubApiUrl(description.substring(urlStart));
+        _scrubHttpUrl(description.substring(urlStart));
+  }
+
+  /// A breadcrumb or span url keeps its ids and its query: only a sensitive
+  /// query value, a route-bound token and an opaque segment are masked.
+  static String _scrubHttpUrl(String url) =>
+      _maskOpaqueSegments(_scrubLocation(url));
+
+  static String _maskOpaqueSegments(String text) {
+    return text.replaceAllMapped(_opaquePathSegment, (Match match) {
+      // A UUID is an id, not a credential. `normalizeEndpoint` already knows
+      // the shape, so it is asked rather than restated.
+      return SentryNetworkInterceptor.normalizeEndpoint(match[2]!) == '{id}'
+          ? match[0]!
+          : '${match[1]}$_opaqueMask';
+    });
   }
 
   static String? _locationOrNull(String? text) =>
@@ -262,42 +368,67 @@ abstract final class SentryTokenScrubber {
   /// Masks the segment of every registered route param named `*token*`.
   ///
   /// A route matches only as a whole path, starting at the beginning of the
-  /// text, after whitespace or right after `scheme://host`, so
-  /// `/monitors/:token` never touches `/api/monitors/x`. The match is rebuilt
-  /// segment by segment, which keeps the surrounding text and any trailing
-  /// slash exactly as they were.
+  /// text, after whitespace or right after `scheme://host` (or `scheme://host/#`
+  /// for a hash-routed url), so `/monitors/:token` never touches
+  /// `/api/monitors/x`. The match is rebuilt segment by segment, which keeps the
+  /// surrounding text and any trailing slash exactly as they were.
   static String _maskRouteTokens(String text) {
     String masked = text;
 
-    for (final RouteDefinition route in MagicRouter.instance.routes) {
-      final List<String> pattern = route.fullPath.split('/');
-      final List<int> tokenSegments = <int>[
-        for (int i = 0; i < pattern.length; i++)
-          if (_isTokenParam(pattern[i])) i,
-      ];
+    for (final _TokenRoute route in _tokenRoutes()) {
+      masked = masked.replaceAllMapped(route.shape, (Match match) {
+        final List<String> segments = match[2]!.split('/');
 
-      if (tokenSegments.isEmpty) {
-        continue;
-      }
-
-      final RegExp shape = RegExp(
-        r'(?<=^|\s|://[^/\s]*)'
-        '${pattern.map(_segmentShape).join('/')}'
-        r'/?(?=$|[\s?#])',
-      );
-
-      masked = masked.replaceAllMapped(shape, (Match match) {
-        final List<String> segments = match[0]!.split('/');
-
-        for (final int index in tokenSegments) {
+        for (final int index in route.tokenSegments) {
           segments[index] = _filtered;
         }
 
-        return segments.join('/');
+        return '${match[1]}${segments.join('/')}';
       });
     }
 
     return masked;
+  }
+
+  /// The compiled token routes, rebuilt only when the registered paths change.
+  ///
+  /// Compared by path and not by count: a route replaced by another, or the
+  /// router reset and re-registered, keeps the same count.
+  static List<_TokenRoute> _tokenRoutes() {
+    // `allRoutes`, not `routes`: the latter holds only top-level routes, and
+    // magic_starter keeps `/invitations/:token/accept` inside a layout group.
+    final List<String> paths = <String>[
+      for (final RouteDefinition route in MagicRouter.instance.allRoutes)
+        route.fullPath,
+    ];
+
+    if (listEquals(paths, _compiledPaths)) {
+      return _compiledRoutes;
+    }
+
+    _compiledPaths = paths;
+    _compiledRoutes = <_TokenRoute>[
+      for (final String path in paths)
+        if (path.split('/').any(_isTokenParam)) _compileRoute(path),
+    ];
+
+    return _compiledRoutes;
+  }
+
+  static _TokenRoute _compileRoute(String path) {
+    final List<String> pattern = path.split('/');
+
+    return (
+      shape: RegExp(
+        r'(^|\s|://[^/\s]*(?:/#)?)'
+        '(${pattern.map(_segmentShape).join('/')}'
+        r'/?)(?=$|[\s?#])',
+      ),
+      tokenSegments: <int>[
+        for (int i = 0; i < pattern.length; i++)
+          if (_isTokenParam(pattern[i])) i,
+      ],
+    );
   }
 
   static bool _isTokenParam(String segment) =>

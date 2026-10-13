@@ -15,6 +15,15 @@ void main() {
   const String dsn = 'https://public@o0.ingest.sentry.io/0';
   final Hint hint = Hint();
 
+  /// Makes every location scrub throw: the scrubber reads each route's
+  /// `fullPath`, so a route whose getter fails is a failure inside the
+  /// scrubber itself, which is what the fail-closed tests need.
+  void registerThrowingRoute() {
+    MagicRouter.instance.addRoute(
+      _ThrowingRoute(path: '/boom', handler: () => const SizedBox()),
+    );
+  }
+
   setUp(() {
     MagicApp.reset();
     Magic.flush();
@@ -127,6 +136,106 @@ void main() {
       expect(trace.data!['count'], 3);
     });
 
+    test('masks a route-bound token in a hash-routed url', () {
+      final SentryEvent event = SentryEvent(
+        request: SentryRequest(
+          url: 'https://app.test/#/invitations/abc123def/accept',
+        ),
+      );
+
+      final String url =
+          SentryTokenScrubber.beforeSend(event, hint).request!.url!;
+
+      expect(url, isNot(contains('abc123def')));
+      expect(url, startsWith('https://app.test/#/invitations/'));
+      expect(url, endsWith('/accept'));
+    });
+
+    test('masks the location an exception value and a message embed', () {
+      final SentryEvent event = SentryEvent(
+        exceptions: [
+          SentryException(
+            type: 'StateError',
+            value: 'Bad state at /invitations/abc123def/accept',
+          ),
+        ],
+        message: SentryMessage(
+          'failed at /invitations/abc123def/accept',
+          template: 'failed at /invitations/abc123def/accept',
+        ),
+      );
+
+      final SentryEvent scrubbed = SentryTokenScrubber.beforeSend(event, hint);
+
+      expect(scrubbed.exceptions!.single.value, isNot(contains('abc123def')));
+      expect(scrubbed.exceptions!.single.value, startsWith('Bad state at '));
+      expect(scrubbed.message!.formatted, isNot(contains('abc123def')));
+      expect(scrubbed.message!.template, isNot(contains('abc123def')));
+    });
+
+    test('fails closed when the scrubber throws, and still returns the event',
+        () {
+      registerThrowingRoute();
+
+      final SentryEvent event = SentryEvent(
+        request: SentryRequest(
+          url: 'https://app.test/invitations/abc123def/accept',
+          queryString: 'token=abc',
+          fragment: '/invitations/abc123def/accept',
+        ),
+        transaction: '/invitations/abc123def/accept',
+        exceptions: [SentryException(type: 'E', value: 'at /x/abc123def')],
+        message: SentryMessage('at /x/abc123def'),
+      );
+
+      final SentryEvent scrubbed = SentryTokenScrubber.beforeSend(event, hint);
+      final String sent = scrubbed.toJson().toString();
+
+      expect(scrubbed, same(event));
+      expect(scrubbed.request!.url, '[Filtered]');
+      expect(scrubbed.request!.queryString, '[Filtered]');
+      expect(scrubbed.request!.fragment, '[Filtered]');
+      expect(scrubbed.transaction, '[Filtered]');
+      expect(sent, isNot(contains('abc123def')));
+    });
+
+    test('masks a token route declared inside a layout group', () {
+      MagicRoute.group(
+        layout: (Widget child) => child,
+        routes: () {
+          MagicRoute.page(
+              '/team-invites/:token/accept', () => const SizedBox());
+        },
+      );
+
+      final SentryEvent event = SentryEvent(
+        request: SentryRequest(
+          url: 'https://app.test/team-invites/abc123def/accept',
+        ),
+      );
+
+      final String url =
+          SentryTokenScrubber.beforeSend(event, hint).request!.url!;
+
+      expect(url, isNot(contains('abc123def')));
+      expect(url, endsWith('/accept'));
+    });
+
+    test('covers a route registered after the first scrub', () {
+      SentryTokenScrubber.beforeSend(
+        SentryEvent(transaction: '/warmup'),
+        hint,
+      );
+      MagicRoute.page('/reset/:resetToken', () => const SizedBox());
+
+      final SentryEvent scrubbed = SentryTokenScrubber.beforeSend(
+        SentryEvent(transaction: '/reset/abc123def'),
+        hint,
+      );
+
+      expect(scrubbed.transaction, isNot(contains('abc123def')));
+    });
+
     test('leaves a url with no token untouched', () {
       final SentryEvent event = SentryEvent(
         request: SentryRequest(url: 'https://app.test/monitors/42?page=3'),
@@ -170,7 +279,7 @@ void main() {
       expect(scrubbed.data!['status_code'], 422);
     });
 
-    test('collapses ids and keeps a uuid out of the opaque rule', () {
+    test('keeps numeric ids and uuids on a breadcrumb url', () {
       final Breadcrumb crumb = Breadcrumb(
         type: 'http',
         data: {
@@ -181,8 +290,68 @@ void main() {
 
       expect(
         SentryTokenScrubber.beforeBreadcrumb(crumb, hint)!.data!['url'],
-        'https://api.test/api/v1/monitors/{id}/checks/{id}',
+        'https://api.test/api/v1/monitors/'
+        '123e4567-e89b-12d3-a456-426614174000/checks/9?page=2',
       );
+    });
+
+    test('keeps a numeric id and masks an opaque segment of 35 characters', () {
+      final Breadcrumb id = Breadcrumb(
+        type: 'http',
+        data: {'url': 'https://api.test/api/v1/monitors/42?page=2'},
+      );
+      final Breadcrumb opaque = Breadcrumb(
+        type: 'http',
+        data: {'url': 'https://api.test/api/v1/reset/${'k' * 35}?page=2'},
+      );
+
+      expect(
+        SentryTokenScrubber.beforeBreadcrumb(id, hint)!.data!['url'],
+        'https://api.test/api/v1/monitors/42?page=2',
+      );
+      expect(
+        SentryTokenScrubber.beforeBreadcrumb(opaque, hint)!.data!['url'],
+        'https://api.test/api/v1/reset/{token}?page=2',
+      );
+    });
+
+    test('masks a token inside a map that is not Map<String, dynamic>', () {
+      final Breadcrumb crumb = Breadcrumb(
+        type: 'navigation',
+        data: {
+          'nested': <Object, Object>{
+            'route': '/invitations/abc123def/accept',
+          },
+        },
+      );
+
+      final Map<dynamic, dynamic> nested =
+          SentryTokenScrubber.beforeBreadcrumb(crumb, hint)!.data!['nested']
+              as Map;
+
+      expect(nested['route'], isNot(contains('abc123def')));
+    });
+
+    test('fails closed when the scrubber throws, and still returns the crumb',
+        () {
+      registerThrowingRoute();
+
+      final Breadcrumb crumb = Breadcrumb(
+        type: 'http',
+        message: 'POST /api/v1/invitations/abc123def/accept',
+        data: {
+          'url': 'https://api.test/api/v1/invitations/abc123def/accept',
+          'status_code': 422,
+        },
+      );
+
+      final Breadcrumb? scrubbed =
+          SentryTokenScrubber.beforeBreadcrumb(crumb, hint);
+
+      expect(scrubbed, same(crumb));
+      expect(scrubbed!.message, '[Filtered]');
+      expect(scrubbed.data!['url'], '[Filtered]');
+      expect(scrubbed.data!['status_code'], 422);
     });
 
     test('masks the query that sentry_dio keeps beside the url', () {
@@ -243,6 +412,13 @@ void main() {
   });
 
   group('scrubApiUrl', () {
+    test('reduces an endpoint: query dropped, ids collapsed', () {
+      expect(
+        SentryTokenScrubber.scrubApiUrl('/api/v1/monitors/42/checks?page=2'),
+        '/api/v1/monitors/{id}/checks',
+      );
+    });
+
     test('masks an opaque segment of 32 characters and not 31', () {
       expect(
         SentryTokenScrubber.scrubApiUrl('/api/v1/x/${'a' * 32}/y'),
@@ -332,6 +508,43 @@ void main() {
       expect(spans, isNot(contains('token=abc')));
       expect(spans, contains('{token}'));
       expect(spans, contains('page=2'));
+    });
+
+    test('fails closed when the scrubber throws, and still returns it',
+        () async {
+      final List<SentryTransaction> raw = <SentryTransaction>[];
+
+      await Sentry.init((SentryOptions options) {
+        options
+          ..dsn = dsn
+          ..tracesSampleRate = 1.0
+          ..beforeSendTransaction = (SentryTransaction t, Hint h) {
+            raw.add(t);
+
+            return null;
+          };
+      });
+
+      final ISentrySpan transaction = Sentry.startTransaction(
+        '/invitations/abc123def/accept',
+        'navigation',
+      );
+      final ISentrySpan http = transaction.startChild(
+        'http.client',
+        description: 'POST https://api.test/api/v1/invitations/abc123def',
+      );
+      http.setData('url', 'https://api.test/api/v1/invitations/abc123def');
+      await http.finish();
+      await transaction.finish();
+
+      registerThrowingRoute();
+
+      final SentryTransaction scrubbed =
+          SentryTokenScrubber.beforeSendTransaction(raw.single, hint);
+
+      expect(scrubbed, same(raw.single));
+      expect(scrubbed.transaction, '[Filtered]');
+      expect(scrubbed.toJson().toString(), isNot(contains('abc123def')));
     });
 
     test('runs the app hook after the scrubber, on the scrubbed value',
@@ -452,4 +665,12 @@ void main() {
       expect(options.beforeBreadcrumb, isNotNull);
     });
   });
+}
+
+/// A route whose `fullPath` fails, to make the scrubber itself throw.
+class _ThrowingRoute extends RouteDefinition {
+  _ThrowingRoute({required super.path, required super.handler});
+
+  @override
+  String get fullPath => throw StateError('scrubber failure');
 }
