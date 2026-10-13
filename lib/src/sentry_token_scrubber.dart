@@ -24,8 +24,8 @@ typedef _TokenRoute = ({RegExp shape, List<int> tokenSegments});
 ///    keeps its key and loses its value.
 /// 2. ROUTE-BOUND SEGMENTS. A path segment sitting where a registered magic
 ///    route has a param whose name contains `token` is masked. The routes are
-///    read from `MagicRouter.instance.routes` at scrub time, so a route added
-///    after boot is covered too.
+///    read from `MagicRouter.instance.allRoutes` at scrub time, so a route
+///    inside a layout group, or one added after boot, is covered too.
 /// 3. OPAQUE API SEGMENTS. A breadcrumb or span URL is an API path, which the
 ///    app's routes do not describe, so any segment of 32 or more characters
 ///    from `[A-Za-z0-9_-]` becomes `{token}`. A UUID is exempt, since it is an
@@ -46,12 +46,14 @@ abstract final class SentryTokenScrubber {
 
   static const String _opaqueMask = '{token}';
 
-  /// A `?key=value` or `&key=value` pair whose KEY names a secret.
+  /// A `?key=value`, `&key=value` or `#key=value` pair whose KEY names a secret.
   ///
-  /// The value stops at `&`, `#` or whitespace so a url embedded in a
-  /// breadcrumb message loses only the value, not the text after it.
+  /// `#` covers a fragment that opens with a pair, the OAuth implicit-flow
+  /// `#access_token=...` shape. The value stops at `&`, `#` or whitespace so a
+  /// url embedded in a breadcrumb message loses only the value, not the text
+  /// after it.
   static final RegExp _sensitiveQueryPair = RegExp(
-    r'([?&])([^=&#\s]*(?:token|password|secret|signature|credential|api_key)'
+    r'([?&#])([^=&#\s]*(?:token|password|secret|signature|credential|api_key)'
     r'[^=&#\s]*)=([^&#\s]*)',
     caseSensitive: false,
   );
@@ -212,7 +214,7 @@ abstract final class SentryTokenScrubber {
     if (request != null) {
       request.url = _locationOrNull(request.url);
       request.queryString = _queryStringOrNull(request.queryString);
-      request.fragment = _locationOrNull(request.fragment);
+      request.fragment = _fragmentOrNull(request.fragment);
     }
 
     event.transaction = _locationOrNull(event.transaction);
@@ -350,6 +352,13 @@ abstract final class SentryTokenScrubber {
 
   static String? _queryStringOrNull(String? query) =>
       query == null ? null : _maskQueryString(query);
+
+  /// A fragment arrives without its `#`, so a pair at its start has nothing to
+  /// anchor on; the `#` is put back for the pair pass, then the route pass runs
+  /// over the bare fragment, where a hash-routed path starts.
+  static String? _fragmentOrNull(String? fragment) => fragment == null
+      ? null
+      : _maskRouteTokens(_maskQueryValues('#$fragment').substring(1));
 
   static String _scrubLocation(String text) =>
       _maskRouteTokens(_maskQueryValues(text));

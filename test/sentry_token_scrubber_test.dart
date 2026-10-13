@@ -104,6 +104,22 @@ void main() {
       expect(request.fragment, isNot(contains('token=abc')));
     });
 
+    test('masks a secret pair at the start of a fragment', () {
+      final SentryEvent event = SentryEvent(
+        request: SentryRequest(
+          url:
+              'https://app.test/callback#access_token=abc123&token_type=bearer',
+          fragment: 'access_token=abc123&token_type=bearer',
+        ),
+      );
+
+      final SentryRequest request =
+          SentryTokenScrubber.beforeSend(event, hint).request!;
+
+      expect(request.url, isNot(contains('abc123')));
+      expect(request.fragment, isNot(contains('abc123')));
+    });
+
     test('masks the transaction name of an error event', () {
       final SentryEvent event = SentryEvent(
         transaction: '/invitations/abc123def/accept',
