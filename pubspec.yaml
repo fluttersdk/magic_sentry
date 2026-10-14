@@ -1,6 +1,6 @@
 name: magic_sentry
 description: Sentry error and performance monitoring for the Magic Framework.
-version: 0.0.4
+version: 0.0.5
 homepage: https://magic.fluttersdk.com/sentry
 documentation: https://magic.fluttersdk.com/packages/sentry/getting-started/installation
 repository: https://github.com/fluttersdk/magic_sentry
