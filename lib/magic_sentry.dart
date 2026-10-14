@@ -13,4 +13,5 @@ export 'src/event_breadcrumbs.dart';
 export 'src/magic_sentry.dart';
 export 'src/sentry_network_interceptor.dart';
 export 'src/sentry_service_provider.dart';
+export 'src/sentry_token_scrubber.dart';
 export 'src/sentry_user_context.dart';

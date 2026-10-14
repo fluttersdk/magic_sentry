@@ -22,9 +22,9 @@ dependencies:
     sdk: flutter
   # Auth.stateNotifier and MagicRouter.instance.addObserver land at 0.0.21;
   # Event.listenAny and ReportsBreadcrumb, which the event breadcrumbs need,
-  # land at 0.0.22. The floor names 0.0.28, the newest release when the
-  # 2026-10-13 batch re-pinned every sibling.
-  magic: ^0.0.28
+  # land at 0.0.22. The token scrubber reads
+  # MagicRouter.allRoutes, which first ships in 0.0.29, the floor.
+  magic: ^0.0.29
   sentry_flutter: ^9.27.0
   sentry_dio: ^9.27.0
 

@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:magic/magic.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
+import 'sentry_token_scrubber.dart';
+
 /// What a failed HTTP call becomes in Sentry.
 enum SentryHttpDisposition {
   /// An issue someone should look at.
@@ -59,7 +61,13 @@ class SentryNetworkInterceptor extends MagicNetworkInterceptor {
   dynamic onError(MagicError error) {
     final int status = error.statusCode;
     final String method = error.request?.method.toUpperCase() ?? 'UNKNOWN';
-    final String endpoint = normalizeEndpoint(error.request?.url ?? 'unknown');
+    // The scrubbed endpoint, not the bare normalised one: this string reaches
+    // the message, the fingerprint and the context, none of which pass
+    // through `beforeSend`'s url fields, and an invitation or reset call puts
+    // its token in the path.
+    final String endpoint = SentryTokenScrubber.scrubApiUrl(
+      error.request?.url ?? 'unknown',
+    );
 
     if (dispositionFor(status) == SentryHttpDisposition.breadcrumb) {
       Sentry.addBreadcrumb(
@@ -161,7 +169,10 @@ class SentryNetworkInterceptor extends MagicNetworkInterceptor {
   /// [url] is the request path as magic recorded it, which may carry a query
   /// string. The query goes entirely: `?page=3` would otherwise split one
   /// endpoint's failures across every page a user happened to be on.
-  @visibleForTesting
+  ///
+  /// This collapses ids only, so a token in the path survives it. An endpoint
+  /// that leaves the process comes from [SentryTokenScrubber.scrubApiUrl],
+  /// which runs this first and masks what is left.
   static String normalizeEndpoint(String url) {
     final String path = url.split('?').first;
 
