@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **`magic` floor moves `^0.0.28` to `^0.0.29`.** The token scrubber reads `MagicRouter.allRoutes`, which magic 0.0.29 introduces, so an adopter on an older magic now gets a version-solve error instead of a compile error inside this package. (`pubspec.yaml`)
 - **`SentryNetworkInterceptor` reports a scrubbed endpoint.** The message, fingerprint and `http_failure` context of a captured failure now carry `SentryTokenScrubber.scrubApiUrl`, so an invitation call that fails with a 500 groups under `/api/v1/invitations/{token}/accept` instead of carrying the token. `normalizeEndpoint` is production API now and loses its `@visibleForTesting`. (`lib/src/sentry_network_interceptor.dart`)
 
 ## [0.0.4] - 2026-10-13
