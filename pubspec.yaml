@@ -25,8 +25,8 @@ dependencies:
   # land at 0.0.22. The token scrubber reads
   # MagicRouter.allRoutes, which first ships in 0.0.29, the floor.
   magic: ^0.0.29
-  sentry_flutter: ^9.27.0
-  sentry_dio: ^9.27.0
+  sentry_flutter: ">=9.27.0 <11.0.0"
+  sentry_dio: ">=9.27.0 <11.0.0"
 
 dev_dependencies:
   flutter_test:
