@@ -28,7 +28,7 @@ lib/
     ├── magic_sentry.dart               # MagicSentry.run + error widget breadcrumb
     ├── sentry_service_provider.dart    # SentryServiceProvider<T>: wires boot()
     ├── sentry_network_interceptor.dart # MagicNetworkInterceptor -> Sentry events/breadcrumbs
-    ├── sentry_token_scrubber.dart      # beforeSend/Transaction/Breadcrumb: masks URL-borne tokens
+    ├── sentry_token_scrubber.dart      # beforeSend/Transaction/Breadcrumb/SendLog: masks URL-borne tokens
     └── sentry_user_context.dart        # Auth.stateNotifier -> Sentry scope user
 install.yaml                   # Plugin manifest: config publish, provider injection
 assets/stubs/install/sentry_config.stub  # configureSentry, published to a consumer's
@@ -53,9 +53,10 @@ unlike a plugin (e.g. `magic_deeplink`) whose config folds into
 `Magic.init(configFactories: [...])`.
 
 **Data flow:** `main()` calls `MagicSentry.run(configure: configureSentry,
-appRunner: _boot)` → one zone opens (`runZonedGuarded`) → `WidgetsFlutterBinding
-.ensureInitialized()` → `Env.load()` → `SentryFlutter.init(configure,
-appRunner: _boot)` → `_boot` runs `Magic.init(...)` then `runApp(...)` →
+appRunner: _boot)` → one zone opens (`runZonedGuarded`) →
+`SentryWidgetsFlutterBinding.ensureInitialized()` (frame tracking disables
+itself on any other binding, and `SentryFlutter.init` keeps one that exists) →
+`Env.load()` → `SentryFlutter.init(configure, appRunner: _boot)` → `_boot` runs `Magic.init(...)` then `runApp(...)` →
 `SentryServiceProvider.boot()` (registered like any other provider) wires the
 network interceptor, the user context, the event breadcrumb listener
 (`Event.listenAny` into `EventBreadcrumbs.breadcrumbFor`) and the navigator
@@ -79,31 +80,10 @@ After ANY source code change, sync **before committing**:
 
 ## Development Flow (TDD)
 
-Every feature, fix, or refactor must go through the red-green-refactor cycle:
-
-1. **Red**: Write a failing test that describes the expected behavior
-2. **Green**: Write the minimum code to make the test pass
-3. **Refactor**: Clean up while keeping tests green
-
-**Rules:**
-- No production code without a failing test first
-- Run `flutter test` after every change: all tests must stay green
-- Run `dart analyze` after every change: zero warnings, zero errors
-- Run `dart format .` before committing: zero formatting issues
-
-## Testing
-
-- Mock via contract inheritance (no mockito): a `NetworkDriver` test double
-  `implements NetworkDriver` and throws `UnimplementedError` on members the
-  test does not exercise, rather than a generated mock.
-- `MagicApp.reset(); Magic.flush();` in `setUp`, the house pattern also used
-  by `magic` itself, so a previous test's singleton never leaks into the next.
-- `MagicRouter.reset()` around any test that calls `addObserver`: it is a
-  process-global singleton with no per-test isolation otherwise.
-- A test that observes Sentry's scope (the user, a tag, a breadcrumb) calls
-  `Sentry.init` with a syntactically valid but unreachable DSN first
-  (`https://public@o0.ingest.sentry.io/0`); nothing in this package's tests
-  ever sends a real event, so no network call happens regardless.
+Red, green, refactor for every feature, fix or refactor: no production code
+without a failing test first. After every change `flutter test` stays green
+and `dart analyze` reports zero warnings and errors; run `dart format .`
+before committing.
 
 ## Key Gotchas
 

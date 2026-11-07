@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **`SentryTokenScrubber` masks structured logs too.** A log sent through `Sentry.logger` (with `enableLogs` on) carried its body and attributes to Sentry unscrubbed, since the scrubber covered events, transactions and breadcrumbs only. The new `SentryTokenScrubber.beforeSendLog` applies the same query-value and route-bound-token rules to the log `body` and to every string and string-array attribute, leaving number and boolean attributes alone, and `install` (so `MagicSentry.run`) now wraps `beforeSendLog` as well: the scrubber runs first and hands the scrubbed log to the app's own hook, sync or async, which may still drop it. It fails closed: the SDK catches a throwing `beforeSendLog` and sends the original log, so on failure the body and every string attribute become `[Filtered]` instead. (`lib/src/sentry_token_scrubber.dart`, `lib/src/magic_sentry.dart`)
+
+### Changed
+
+- **`MagicSentry.run` creates `SentryWidgetsFlutterBinding` instead of `WidgetsFlutterBinding`.** `SentryFlutter.init` installs Sentry's binding only when none exists, and `run` created Flutter's plain one first (it has to exist before `Env.load` reads the asset bundle), so frame tracking logged a warning and disabled itself in every app booted through `run`. The binding is still created at the same point, in the same zone. An app that calls `WidgetsFlutterBinding.ensureInitialized()` before `run` keeps the plain binding and loses frame tracking. (`lib/src/magic_sentry.dart`)
+
 ## [0.0.5] - 2026-10-14
 
 ### Added

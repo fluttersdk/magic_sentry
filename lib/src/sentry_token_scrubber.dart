@@ -33,14 +33,16 @@ typedef _TokenRoute = ({RegExp shape, List<int> tokenSegments});
 ///    exactly what a token looks like and is masked. Only the interceptor's
 ///    fingerprint, through [scrubApiUrl], also collapses ids to `{id}`.
 ///
-/// Every hook MASKS and never drops: an event or breadcrumb the scrubber does
-/// not recognise passes through unchanged. A numeric id and the `email` query
+/// Every hook MASKS and never drops: an event, breadcrumb or structured log
+/// (`Sentry.logger`, sent when `enableLogs` is on) the scrubber does not
+/// recognise passes through unchanged. A numeric id and the `email` query
 /// key are deliberately left alone; masking them would blind debugging for no
 /// credential gained.
 ///
-/// FAIL CLOSED. The SDK catches a throwing `beforeSend` and sends the event it
-/// was given, half scrubbed. So a hook that fails here replaces every field it
-/// would have scrubbed with `[Filtered]` and still returns the event.
+/// FAIL CLOSED. The SDK catches a throwing `beforeSend` or `beforeSendLog` and
+/// sends the event or log it was given, half scrubbed. So a hook that fails
+/// here replaces every field it would have scrubbed with `[Filtered]` and still
+/// returns the event.
 abstract final class SentryTokenScrubber {
   static const String _filtered = '[Filtered]';
 
@@ -82,6 +84,7 @@ abstract final class SentryTokenScrubber {
         options.beforeSendTransaction;
     final BeforeBreadcrumbCallback? appBeforeBreadcrumb =
         options.beforeBreadcrumb;
+    final BeforeSendLogCallback? appBeforeSendLog = options.beforeSendLog;
 
     options.beforeSend = (SentryEvent event, Hint hint) {
       final SentryEvent scrubbed = beforeSend(event, hint);
@@ -106,6 +109,12 @@ abstract final class SentryTokenScrubber {
       return appBeforeBreadcrumb == null
           ? scrubbed
           : appBeforeBreadcrumb(scrubbed, hint);
+    };
+
+    options.beforeSendLog = (SentryLog log) {
+      final SentryLog scrubbed = beforeSendLog(log);
+
+      return appBeforeSendLog == null ? scrubbed : appBeforeSendLog(scrubbed);
     };
   }
 
@@ -195,6 +204,25 @@ abstract final class SentryTokenScrubber {
     return crumb;
   }
 
+  /// Masks a structured [log] in place: its `body` and every `string` or
+  /// string-array attribute. Number and boolean attributes are left alone.
+  ///
+  /// An attribute is immutable, so a masked one replaces its map entry. Fails
+  /// closed, and here it matters most: the SDK catches a throwing
+  /// `beforeSendLog` and sends the log it was given, so on failure the body
+  /// and every string attribute become `[Filtered]`.
+  static SentryLog beforeSendLog(SentryLog log) {
+    try {
+      log.body = _scrubLocation(log.body);
+      _rewriteStringAttributes(log, _scrubLocation);
+    } on Object {
+      log.body = _filtered;
+      _rewriteStringAttributes(log, (String _) => _filtered);
+    }
+
+    return log;
+  }
+
   /// Reduces an API [url] to an endpoint that is safe to group on.
   ///
   /// The query is dropped, numeric and UUID segments become `{id}`, a segment
@@ -277,6 +305,24 @@ abstract final class SentryTokenScrubber {
       trace.data = trace.data?.map(
         (String key, dynamic value) => MapEntry(key, _maskValue(value)),
       );
+    }
+  }
+
+  static void _rewriteStringAttributes(
+    SentryLog log,
+    String Function(String text) rewrite,
+  ) {
+    for (final MapEntry<String, SentryAttribute> entry
+        in log.attributes.entries.toList()) {
+      final Object? value = entry.value.value;
+
+      if (value is String) {
+        log.attributes[entry.key] = SentryAttribute.string(rewrite(value));
+      } else if (value is List<String>) {
+        log.attributes[entry.key] = SentryAttribute.stringArray(
+          value.map(rewrite).toList(),
+        );
+      }
     }
   }
 
