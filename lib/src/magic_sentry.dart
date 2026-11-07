@@ -58,7 +58,11 @@ class MagicSentry {
   }) {
     runZonedGuarded(
       () async {
-        WidgetsFlutterBinding.ensureInitialized();
+        // Sentry's binding, not Flutter's: `SentryFlutter.init` cannot replace
+        // a binding that already exists, and its frame tracking disables
+        // itself on any other. Created here because `Env.load` below needs
+        // the asset bundle.
+        SentryWidgetsFlutterBinding.ensureInitialized();
 
         // Loaded before Sentry: the DSN lives in `.env`, and `configure`
         // would otherwise run before it exists. `Env.load` guards on a
