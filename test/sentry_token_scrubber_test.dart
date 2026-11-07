@@ -622,6 +622,81 @@ void main() {
     });
   });
 
+  group('beforeSendLog', () {
+    SentryLog logWith(String body, Map<String, SentryAttribute> attributes) {
+      return SentryLog(
+        timestamp: DateTime.now(),
+        level: SentryLogLevel.info,
+        body: body,
+        attributes: attributes,
+      );
+    }
+
+    test('masks body, string and string-array attributes, keeps the rest', () {
+      final SentryLog log = logWith(
+        'opened /invitations/abc123def/accept?token=t1&page=2',
+        <String, SentryAttribute>{
+          'url': SentryAttribute.string(
+            'https://app.test/auth/reset-password?token=t2&email=a%40b.c',
+          ),
+          'routes': SentryAttribute.stringArray(<String>[
+            '/invitations/abc123def/accept',
+            '/home?access_token=t3',
+          ]),
+          'count': SentryAttribute.int(3),
+          'ratio': SentryAttribute.double(0.5),
+          'ok': SentryAttribute.bool(true),
+        },
+      );
+
+      final SentryLog scrubbed = SentryTokenScrubber.beforeSendLog(log);
+
+      expect(scrubbed, same(log));
+      expect(log.body, isNot(contains('abc123def')));
+      expect(log.body, isNot(contains('token=t1')));
+      expect(log.body, contains('page=2'));
+      expect(log.attributes['url']!.value, isNot(contains('token=t2')));
+      expect(log.attributes['url']!.value, contains('email=a%40b.c'));
+      expect(log.attributes['url']!.toJson()['type'], 'string');
+
+      final List<String> routes = log.attributes['routes']!.value;
+
+      expect(routes, hasLength(2));
+      expect(routes[0], isNot(contains('abc123def')));
+      expect(routes[0], startsWith('/invitations/'));
+      expect(routes[1], isNot(contains('t3')));
+      expect(log.attributes['routes']!.toJson()['type'], 'array');
+      expect(log.attributes['count']!.value, 3);
+      expect(log.attributes['ratio']!.value, 0.5);
+      expect(log.attributes['ok']!.value, true);
+    });
+
+    test('fails closed when the scrubber throws, and still returns the log',
+        () {
+      registerThrowingRoute();
+
+      final SentryLog log = logWith(
+        'opened /invitations/abc123def/accept',
+        <String, SentryAttribute>{
+          'url': SentryAttribute.string('/invitations/abc123def/accept'),
+          'routes': SentryAttribute.stringArray(<String>[
+            '/invitations/abc123def/accept',
+          ]),
+          'count': SentryAttribute.int(3),
+        },
+      );
+
+      final SentryLog scrubbed = SentryTokenScrubber.beforeSendLog(log);
+
+      expect(scrubbed, same(log));
+      expect(log.body, '[Filtered]');
+      expect(log.attributes['url']!.value, '[Filtered]');
+      expect(log.attributes['routes']!.value, <String>['[Filtered]']);
+      expect(log.attributes['count']!.value, 3);
+      expect(log.toJson().toString(), isNot(contains('abc123def')));
+    });
+  });
+
   group('install', () {
     test('runs the scrubber first, then the hook the app set', () async {
       final List<String?> seen = <String?>[];
@@ -671,7 +746,7 @@ void main() {
           options.beforeBreadcrumb!(Breadcrumb(message: 'x'), Hint()), isNull);
     });
 
-    test('wires all three hooks when the app set none', () {
+    test('wires all four hooks when the app set none', () {
       final SentryOptions options = SentryOptions(dsn: dsn);
 
       SentryTokenScrubber.install(options);
@@ -679,6 +754,64 @@ void main() {
       expect(options.beforeSend, isNotNull);
       expect(options.beforeSendTransaction, isNotNull);
       expect(options.beforeBreadcrumb, isNotNull);
+      expect(options.beforeSendLog, isNotNull);
+    });
+
+    group('beforeSendLog', () {
+      SentryLog tokenLog() {
+        return SentryLog(
+          timestamp: DateTime.now(),
+          level: SentryLogLevel.info,
+          body: 'opened /invitations/abc123def/accept',
+          attributes: <String, SentryAttribute>{},
+        );
+      }
+
+      test('scrubs first, then runs a sync app hook on the scrubbed log',
+          () async {
+        final List<String> seen = <String>[];
+        final SentryOptions options = SentryOptions(dsn: dsn)
+          ..beforeSendLog = (SentryLog log) {
+            seen.add(log.body);
+
+            return log;
+          };
+
+        SentryTokenScrubber.install(options);
+
+        final SentryLog? sent = await options.beforeSendLog!(tokenLog());
+
+        expect(seen, hasLength(1));
+        expect(seen.single, isNot(contains('abc123def')));
+        expect(sent!.body, seen.single);
+      });
+
+      test('awaits an async app hook, which sees the scrubbed log', () async {
+        final List<String> seen = <String>[];
+        final SentryOptions options = SentryOptions(dsn: dsn)
+          ..beforeSendLog = (SentryLog log) async {
+            await Future<void>.delayed(Duration.zero);
+            seen.add(log.body);
+
+            return log..body = '${log.body} (app)';
+          };
+
+        SentryTokenScrubber.install(options);
+
+        final SentryLog? sent = await options.beforeSendLog!(tokenLog());
+
+        expect(seen.single, isNot(contains('abc123def')));
+        expect(sent!.body, '${seen.single} (app)');
+      });
+
+      test('lets the app hook drop the log', () async {
+        final SentryOptions options = SentryOptions(dsn: dsn)
+          ..beforeSendLog = ((SentryLog log) => null);
+
+        SentryTokenScrubber.install(options);
+
+        expect(await options.beforeSendLog!(tokenLog()), isNull);
+      });
     });
   });
 }

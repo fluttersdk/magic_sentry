@@ -118,8 +118,8 @@ void main() {
       expect(sent!.request!.url, seenByApp.single);
     });
 
-    test('wires the transaction and breadcrumb scrubbers too', () async {
-      final completer = Completer<(bool, bool)>();
+    test('wires the transaction, breadcrumb and log scrubbers too', () async {
+      final completer = Completer<(bool, bool, bool)>();
       late SentryFlutterOptions configured;
 
       MagicSentry.run(
@@ -131,13 +131,14 @@ void main() {
           completer.complete((
             configured.beforeSendTransaction != null,
             configured.beforeBreadcrumb != null,
+            configured.beforeSendLog != null,
           ));
         },
       );
 
       expect(
         await completer.future.timeout(const Duration(seconds: 5)),
-        (true, true),
+        (true, true, true),
       );
     });
 
