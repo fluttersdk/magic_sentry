@@ -74,8 +74,11 @@ The command performs the following steps:
 ## Wiring main()
 
 `MagicSentry.run` replaces the whole body of `main()`. It opens one zone,
-initialises Flutter's binding, loads `.env`, then starts Sentry and hands
-control to your existing boot function as `appRunner`:
+initialises Sentry's widgets binding (`SentryWidgetsFlutterBinding`, which
+frame tracking needs), loads `.env`, then starts Sentry and hands control to
+your existing boot function as `appRunner`. Do not call
+`WidgetsFlutterBinding.ensureInitialized()` before it: a binding that already
+exists is kept, and frame tracking then disables itself.
 
 ```dart
 import 'package:flutter/material.dart';

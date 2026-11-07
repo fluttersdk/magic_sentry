@@ -28,9 +28,15 @@ import 'sentry_token_scrubber.dart';
 class MagicSentry {
   MagicSentry._();
 
-  /// Opens one zone for Flutter's binding, `.env` loading, Sentry's own
+  /// Opens one zone for the widgets binding, `.env` loading, Sentry's own
   /// initialisation and the whole app, then hands zone-level errors to
   /// Sentry.
+  ///
+  /// The binding it creates is `SentryWidgetsFlutterBinding`, which
+  /// sentry_flutter's frame tracking (slow and frozen frames on spans) needs.
+  /// Do not call `WidgetsFlutterBinding.ensureInitialized()` before [run]: a
+  /// binding that already exists is kept, and frame tracking then disables
+  /// itself.
   ///
   /// ONE ZONE FOR EVERYTHING is the point, not an implementation detail: on
   /// Flutter web `SentryFlutter.init` opens its own `runZonedGuarded` only
@@ -48,10 +54,11 @@ class MagicSentry {
   /// runs: see `lib/config/sentry.dart`'s `sentryDsn`.
   ///
   /// [SentryTokenScrubber] is installed AFTER [configure] returns, so it runs
-  /// first in `beforeSend`, `beforeSendTransaction` and `beforeBreadcrumb` and
-  /// hands its masked value to whichever of those hooks [configure] set. A hook
-  /// assigned any later than this (after `SentryFlutter.init`) replaces the
-  /// scrubber, so set app hooks inside [configure].
+  /// first in `beforeSend`, `beforeSendTransaction`, `beforeBreadcrumb` and
+  /// `beforeSendLog` and hands its masked value to whichever of those hooks
+  /// [configure] set. A hook assigned any later than this (after
+  /// `SentryFlutter.init`) replaces the scrubber, so set app hooks inside
+  /// [configure].
   static void run({
     required FutureOr<void> Function(SentryFlutterOptions options) configure,
     required FutureOr<void> Function() appRunner,
