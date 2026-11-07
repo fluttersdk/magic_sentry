@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.0.6] - 2026-11-07
+
 ### Added
 
 - **`SentryTokenScrubber` masks structured logs too.** A log sent through `Sentry.logger` (with `enableLogs` on) carried its body and attributes to Sentry unscrubbed, since the scrubber covered events, transactions and breadcrumbs only. The new `SentryTokenScrubber.beforeSendLog` applies the same query-value and route-bound-token rules to the log `body` and to every string and string-array attribute, leaving number and boolean attributes alone, and `install` (so `MagicSentry.run`) now wraps `beforeSendLog` as well: the scrubber runs first and hands the scrubbed log to the app's own hook, sync or async, which may still drop it. It fails closed: the SDK catches a throwing `beforeSendLog` and sends the original log, so on failure the body and every string attribute become `[Filtered]` instead. (`lib/src/sentry_token_scrubber.dart`, `lib/src/magic_sentry.dart`)

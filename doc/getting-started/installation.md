@@ -41,7 +41,7 @@ Or add it manually to `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  magic_sentry: ^0.0.5
+  magic_sentry: ^0.0.6
 ```
 
 Then fetch dependencies:
