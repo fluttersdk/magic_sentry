@@ -36,24 +36,21 @@ class _SpyNetworkDriver implements NetworkDriver {
     String resource, {
     Map<String, dynamic>? filters,
     Map<String, String>? headers,
-  }) =>
-      throw UnimplementedError();
+  }) => throw UnimplementedError();
 
   @override
   Future<MagicResponse> show(
     String resource,
     String id, {
     Map<String, String>? headers,
-  }) =>
-      throw UnimplementedError();
+  }) => throw UnimplementedError();
 
   @override
   Future<MagicResponse> store(
     String resource,
     Map<String, dynamic> data, {
     Map<String, String>? headers,
-  }) =>
-      throw UnimplementedError();
+  }) => throw UnimplementedError();
 
   @override
   Future<MagicResponse> update(
@@ -61,40 +58,35 @@ class _SpyNetworkDriver implements NetworkDriver {
     String id,
     Map<String, dynamic> data, {
     Map<String, String>? headers,
-  }) =>
-      throw UnimplementedError();
+  }) => throw UnimplementedError();
 
   @override
   Future<MagicResponse> destroy(
     String resource,
     String id, {
     Map<String, String>? headers,
-  }) =>
-      throw UnimplementedError();
+  }) => throw UnimplementedError();
 
   @override
   Future<MagicResponse> get(
     String url, {
     Map<String, dynamic>? query,
     Map<String, String>? headers,
-  }) =>
-      throw UnimplementedError();
+  }) => throw UnimplementedError();
 
   @override
   Future<MagicResponse> post(
     String url, {
     dynamic data,
     Map<String, String>? headers,
-  }) =>
-      throw UnimplementedError();
+  }) => throw UnimplementedError();
 
   @override
   Future<MagicResponse> put(
     String url, {
     dynamic data,
     Map<String, String>? headers,
-  }) =>
-      throw UnimplementedError();
+  }) => throw UnimplementedError();
 
   @override
   Future<MagicResponse> delete(String url, {Map<String, String>? headers}) =>
@@ -106,8 +98,7 @@ class _SpyNetworkDriver implements NetworkDriver {
     required Map<String, dynamic> data,
     required Map<String, dynamic> files,
     Map<String, String>? headers,
-  }) =>
-      throw UnimplementedError();
+  }) => throw UnimplementedError();
 }
 
 /// An event that opts into the breadcrumb trail.
@@ -180,40 +171,44 @@ void main() {
         );
       });
 
-      test('installs the user context when id/email callbacks are supplied',
-          () async {
-        Magic.app.setInstance('network', _SpyNetworkDriver());
-        Auth.fake(user: _TestUser(id: 'usr_1'));
+      test(
+        'installs the user context when id/email callbacks are supplied',
+        () async {
+          Magic.app.setInstance('network', _SpyNetworkDriver());
+          Auth.fake(user: _TestUser(id: 'usr_1'));
 
-        await SentryServiceProvider<_TestUser>(
-          MagicApp.instance,
-          userId: (user) => user.id,
-          userEmail: (user) => null,
-        ).boot();
+          await SentryServiceProvider<_TestUser>(
+            MagicApp.instance,
+            userId: (user) => user.id,
+            userEmail: (user) => null,
+          ).boot();
 
-        SentryUser? reported;
-        await Sentry.configureScope((scope) => reported = scope.user);
+          SentryUser? reported;
+          await Sentry.configureScope((scope) => reported = scope.user);
 
-        expect(reported, isNotNull);
-        expect(reported!.id, 'usr_1');
-      });
+          expect(reported, isNotNull);
+          expect(reported!.id, 'usr_1');
+        },
+      );
 
-      test('reports the user from userId alone, for a model with no email',
-          () async {
-        Magic.app.setInstance('network', _SpyNetworkDriver());
-        Auth.fake(user: _TestUser(id: 'usr_2'));
+      test(
+        'reports the user from userId alone, for a model with no email',
+        () async {
+          Magic.app.setInstance('network', _SpyNetworkDriver());
+          Auth.fake(user: _TestUser(id: 'usr_2'));
 
-        await SentryServiceProvider<_TestUser>(
-          MagicApp.instance,
-          userId: (user) => user.id,
-        ).boot();
+          await SentryServiceProvider<_TestUser>(
+            MagicApp.instance,
+            userId: (user) => user.id,
+          ).boot();
 
-        SentryUser? reported;
-        await Sentry.configureScope((scope) => reported = scope.user);
+          SentryUser? reported;
+          await Sentry.configureScope((scope) => reported = scope.user);
 
-        expect(reported?.id, 'usr_2');
-        expect(reported?.email, isNull);
-      });
+          expect(reported?.id, 'usr_2');
+          expect(reported?.email, isNull);
+        },
+      );
 
       test('skips user reporting when no callbacks are supplied', () async {
         Magic.app.setInstance('network', _SpyNetworkDriver());
@@ -226,8 +221,7 @@ void main() {
         expect(reported, isNull);
       });
 
-      test(
-          'degrades to a debugPrint report, not silence, with no log bound '
+      test('degrades to a debugPrint report, not silence, with no log bound '
           'and no network driver bound', () async {
         // Nothing bound at 'network': `app.make` throws inside the provider,
         // and boot() must not propagate it, since reporting is not worth
@@ -254,13 +248,13 @@ void main() {
         expect(
           printed.any((line) => line.contains('sentry')),
           isTrue,
-          reason: 'the failure to wire the network interceptor must be '
+          reason:
+              'the failure to wire the network interceptor must be '
               'reported, not swallowed',
         );
       });
 
-      test(
-          'reports through Log.warning, with a stack trace, when log is '
+      test('reports through Log.warning, with a stack trace, when log is '
           'bound', () async {
         final FakeLogManager log = Log.fake();
 
@@ -276,8 +270,7 @@ void main() {
         expect(log.entries.single.context, contains('stackTrace'));
       });
 
-      test(
-          'registers the event breadcrumb listener once, not duplicated on '
+      test('registers the event breadcrumb listener once, not duplicated on '
           'second boot', () async {
         Magic.app.setInstance('network', _SpyNetworkDriver());
 
@@ -293,16 +286,15 @@ void main() {
 
         // 4. Collect the recorded breadcrumbs.
         List<Breadcrumb> breadcrumbs = const [];
-        await Sentry.configureScope(
-          (scope) => breadcrumbs = scope.breadcrumbs,
-        );
+        await Sentry.configureScope((scope) => breadcrumbs = scope.breadcrumbs);
 
         // 5. Verify only one breadcrumb was recorded, not two (from the
         // duplicate listener).
         expect(
           breadcrumbs,
           hasLength(1),
-          reason: 'the event breadcrumb listener must not be registered '
+          reason:
+              'the event breadcrumb listener must not be registered '
               'twice on a second boot',
         );
         expect(breadcrumbs.single.category, 'test.category');

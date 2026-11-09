@@ -31,9 +31,9 @@ class SentryUserContext<T extends Model> {
     required String Function(T user) id,
     required String? Function(T user) email,
     Map<String, String> Function(T user)? extras,
-  })  : _id = id,
-        _email = email,
-        _extras = extras;
+  }) : _id = id,
+       _email = email,
+       _extras = extras;
 
   /// Extracts the reported user id from [T]. Empty means "no user".
   final String Function(T user) _id;

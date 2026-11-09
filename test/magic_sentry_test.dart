@@ -30,7 +30,8 @@ void main() {
       expect(
         barrel,
         isNot(contains("'config/sentry.dart'")),
-        reason: 'the published install stub is the single source for '
+        reason:
+            'the published install stub is the single source for '
             'configureSentry/sentryDsn/sentryEnabled; the barrel must not '
             'also export a package copy of the same names.',
       );
@@ -44,21 +45,23 @@ void main() {
       }
     });
 
-    test('an empty DSN leaves Sentry disabled and still runs appRunner',
-        () async {
-      final completer = Completer<void>();
+    test(
+      'an empty DSN leaves Sentry disabled and still runs appRunner',
+      () async {
+        final completer = Completer<void>();
 
-      MagicSentry.run(
-        configure: (options) => options.dsn = '',
-        appRunner: () {
-          completer.complete();
-        },
-      );
+        MagicSentry.run(
+          configure: (options) => options.dsn = '',
+          appRunner: () {
+            completer.complete();
+          },
+        );
 
-      await completer.future.timeout(const Duration(seconds: 5));
+        await completer.future.timeout(const Duration(seconds: 5));
 
-      expect(Sentry.isEnabled, isFalse);
-    });
+        expect(Sentry.isEnabled, isFalse);
+      },
+    );
 
     test('a non-empty DSN enables Sentry before appRunner runs', () async {
       final completer = Completer<bool>();
@@ -109,8 +112,9 @@ void main() {
         },
       );
 
-      final SentryEvent? sent =
-          await completer.future.timeout(const Duration(seconds: 5));
+      final SentryEvent? sent = await completer.future.timeout(
+        const Duration(seconds: 5),
+      );
 
       expect(seenByApp, hasLength(1));
       expect(seenByApp.single, isNot(contains('token=abc')));
@@ -136,10 +140,11 @@ void main() {
         },
       );
 
-      expect(
-        await completer.future.timeout(const Duration(seconds: 5)),
-        (true, true, true),
-      );
+      expect(await completer.future.timeout(const Duration(seconds: 5)), (
+        true,
+        true,
+        true,
+      ));
     });
 
     test('a zone error from appRunner does not crash the isolate', () async {

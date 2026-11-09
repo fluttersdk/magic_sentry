@@ -74,7 +74,8 @@ void main() {
     test('it leaves a static path alone', () {
       expect(
         SentryNetworkInterceptor.normalizeEndpoint(
-            '/dashboard/active-incidents'),
+          '/dashboard/active-incidents',
+        ),
         '/dashboard/active-incidents',
       );
     });
@@ -91,7 +92,8 @@ void main() {
     test('it drops a query string, which would explode grouping', () {
       expect(
         SentryNetworkInterceptor.normalizeEndpoint(
-            '/monitors?page=3&per_page=50'),
+          '/monitors?page=3&per_page=50',
+        ),
         '/monitors',
       );
     });
@@ -139,43 +141,45 @@ void main() {
       }
     });
 
-    test('a 500 becomes an event fingerprinted on the normalised endpoint',
-        () async {
-      SentryEvent? captured;
+    test(
+      'a 500 becomes an event fingerprinted on the normalised endpoint',
+      () async {
+        SentryEvent? captured;
 
-      await Sentry.init((options) {
-        options.dsn = 'https://public@o0.ingest.sentry.io/0';
-        // Read the event Sentry would have sent, then block the send: this
-        // test proves what gets CAPTURED, never anything reaching a real
-        // network.
-        options.beforeSend = (event, hint) {
-          captured = event;
-          return null;
-        };
-      });
+        await Sentry.init((options) {
+          options.dsn = 'https://public@o0.ingest.sentry.io/0';
+          // Read the event Sentry would have sent, then block the send: this
+          // test proves what gets CAPTURED, never anything reaching a real
+          // network.
+          options.beforeSend = (event, hint) {
+            captured = event;
+            return null;
+          };
+        });
 
-      SentryNetworkInterceptor().onError(
-        MagicError(
-          message: 'server exploded',
-          request: MagicRequest(url: '/monitors/123', method: 'GET'),
-          response: MagicResponse(
-            data: null,
-            statusCode: 500,
-            headers: const {},
+        SentryNetworkInterceptor().onError(
+          MagicError(
+            message: 'server exploded',
+            request: MagicRequest(url: '/monitors/123', method: 'GET'),
+            response: MagicResponse(
+              data: null,
+              statusCode: 500,
+              headers: const {},
+            ),
           ),
-        ),
-      );
+        );
 
-      // `Sentry.captureEvent` runs asynchronously inside the SDK's own hub;
-      // the interceptor fires it and returns immediately (see `onError`'s
-      // own docs on why: reporting must never change the outcome of a
-      // request). Draining the event queue is what lets `beforeSend` run
-      // before this test asserts on it.
-      await pumpEventQueue();
+        // `Sentry.captureEvent` runs asynchronously inside the SDK's own hub;
+        // the interceptor fires it and returns immediately (see `onError`'s
+        // own docs on why: reporting must never change the outcome of a
+        // request). Draining the event queue is what lets `beforeSend` run
+        // before this test asserts on it.
+        await pumpEventQueue();
 
-      expect(captured, isNotNull);
-      expect(captured!.fingerprint, ['http', 'GET', '/monitors/{id}', '500']);
-    });
+        expect(captured, isNotNull);
+        expect(captured!.fingerprint, ['http', 'GET', '/monitors/{id}', '500']);
+      },
+    );
 
     test('a 404 produces no event, only a breadcrumb', () async {
       bool sendAttempted = false;
@@ -209,18 +213,20 @@ void main() {
   group('onError', () {
     setUp(SentryNetworkInterceptor.reportedFailures.clear);
 
-    test('it returns the error untouched so the interceptor chain survives',
-        () {
-      // magic reads the return value: a `MagicResponse` RESOLVES the failure
-      // as a success, anything else lets it continue. Reporting must never
-      // change the outcome of a request, so this returns exactly what it was
-      // handed.
-      final error = MagicError(message: 'boom');
+    test(
+      'it returns the error untouched so the interceptor chain survives',
+      () {
+        // magic reads the return value: a `MagicResponse` RESOLVES the failure
+        // as a success, anything else lets it continue. Reporting must never
+        // change the outcome of a request, so this returns exactly what it was
+        // handed.
+        final error = MagicError(message: 'boom');
 
-      expect(
-        identical(SentryNetworkInterceptor().onError(error), error),
-        isTrue,
-      );
-    });
+        expect(
+          identical(SentryNetworkInterceptor().onError(error), error),
+          isTrue,
+        );
+      },
+    );
   });
 }
