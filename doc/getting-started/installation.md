@@ -26,8 +26,8 @@ not loaded yet at the point Sentry needs its DSN.
 <a name="requirements"></a>
 ## Requirements
 
-- **Dart SDK**: 3.6.0 or higher
-- **Flutter**: 3.27.0 or higher
+- **Dart SDK**: 3.12.0 or higher
+- **Flutter**: 3.44.0 or higher
 - **Magic Framework** 0.0.22 or higher, installed and bootstrapped (`lib/config/app.dart` present). 0.0.22 is the first release with `Event.listenAny` and `ReportsBreadcrumb`, which the event breadcrumbs call
 
 <a name="installing-the-package"></a>
@@ -41,7 +41,7 @@ Or add it manually to `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  magic_sentry: ^0.0.6
+  magic_sentry: ^0.0.7
 ```
 
 Then fetch dependencies:
