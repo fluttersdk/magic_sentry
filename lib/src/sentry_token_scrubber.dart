@@ -202,10 +202,14 @@ abstract final class SentryTokenScrubber {
       span.name = http
           ? _scrubHttpDescription(span.name)
           : _scrubLocation(span.name);
-      _rewriteAttributes(span, (String text) => _scrubLocation(text));
+      _rewriteAttributes(
+        span,
+        (String key, String text) =>
+            _scrubValue(key, text, http: http) as String,
+      );
     } on Object {
       span.name = _filtered;
-      _rewriteAttributes(span, (String _) => _filtered);
+      _rewriteAttributes(span, (_, _) => _filtered);
     }
   }
 
@@ -356,13 +360,19 @@ abstract final class SentryTokenScrubber {
     }
   }
 
+  /// Rewrites every string attribute of [span] through [rewrite], which is
+  /// told the attribute key so an http span's url and query get the rules the
+  /// transaction path gives them.
   static void _rewriteAttributes(
     SentrySpanV2 span,
-    String Function(String text) rewrite,
+    String Function(String key, String text) rewrite,
   ) {
     for (final MapEntry<String, SentryAttribute> entry
         in span.attributes.entries.toList()) {
-      final SentryAttribute? masked = _rewritten(entry.value, rewrite);
+      final SentryAttribute? masked = _rewritten(
+        entry.value,
+        (String text) => rewrite(entry.key, text),
+      );
 
       if (masked != null) {
         span.setAttribute(entry.key, masked);
@@ -411,7 +421,8 @@ abstract final class SentryTokenScrubber {
         return _maskQueryString(value);
       }
 
-      return http && key == 'url'
+      // `url` on a transaction span, `url.full` on a streamed one.
+      return http && (key == 'url' || key == 'url.full')
           ? _scrubHttpUrl(value)
           : _scrubLocation(value);
     }

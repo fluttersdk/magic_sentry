@@ -791,6 +791,31 @@ void main() {
       expect(span.name, isNot(contains(secret)));
     });
 
+    test('masks an opaque path segment and the query of an http span', () {
+      final String secret = 'a' * 40;
+      final SentrySpanV2 span = spanWith(
+        'GET https://api.test/api/v1/invitations',
+        <String, SentryAttribute>{
+          'sentry.op': SentryAttribute.string('http.client'),
+          'url.full': SentryAttribute.string(
+            'https://api.test/api/v1/invitations/$secret?page=2',
+          ),
+          'http.query': SentryAttribute.string('token=abc&page=2'),
+        },
+      );
+
+      SentryTokenScrubber.beforeSendSpan(span, Hint());
+
+      expect(
+        span.attributes['url.full']!.value,
+        allOf(isNot(contains(secret)), contains('page=2')),
+      );
+      expect(
+        span.attributes['http.query']!.value,
+        allOf(isNot(contains('abc')), contains('page=2')),
+      );
+    });
+
     test('fails closed: a scrubber failure masks the name and the strings', () {
       registerThrowingRoute();
 
