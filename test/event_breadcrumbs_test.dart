@@ -29,21 +29,26 @@ class _PlainEvent extends MagicEvent {}
 /// ever sending a real breadcrumb.
 void main() {
   group('EventBreadcrumbs.breadcrumbFor', () {
-    test('maps a ReportsBreadcrumb event to its category, message and data',
-        () {
-      final Breadcrumb? crumb =
-          EventBreadcrumbs.breadcrumbFor(_DeeplinkOpened('/monitors/42'));
+    test(
+      'maps a ReportsBreadcrumb event to its category, message and data',
+      () {
+        final Breadcrumb? crumb = EventBreadcrumbs.breadcrumbFor(
+          _DeeplinkOpened('/monitors/42'),
+        );
 
-      expect(crumb, isNotNull);
-      expect(crumb!.category, 'deeplink.open');
-      expect(crumb.message, 'Deeplink opened');
-      expect(crumb.data, {'path': '/monitors/42'});
-      expect(crumb.level, SentryLevel.info);
-    });
+        expect(crumb, isNotNull);
+        expect(crumb!.category, 'deeplink.open');
+        expect(crumb.message, 'Deeplink opened');
+        expect(crumb.data, {'path': '/monitors/42'});
+        expect(crumb.level, SentryLevel.info);
+      },
+    );
 
-    test('answers null for an event that does not implement ReportsBreadcrumb',
-        () {
-      expect(EventBreadcrumbs.breadcrumbFor(_PlainEvent()), isNull);
-    });
+    test(
+      'answers null for an event that does not implement ReportsBreadcrumb',
+      () {
+        expect(EventBreadcrumbs.breadcrumbFor(_PlainEvent()), isNull);
+      },
+    );
   });
 }

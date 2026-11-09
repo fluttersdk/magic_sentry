@@ -99,7 +99,8 @@ void main() {
       // would leave `configureScope` a no-op), but nothing here sends an
       // event, so no request ever reaches it.
       await Sentry.init(
-          (options) => options.dsn = 'https://public@o0.ingest.sentry.io/0');
+        (options) => options.dsn = 'https://public@o0.ingest.sentry.io/0',
+      );
     });
 
     tearDown(() async {
@@ -108,7 +109,9 @@ void main() {
     });
 
     test('login sets the scope user id and email', () async {
-      Auth.fake(user: _TestUser(id: 'usr_1', email: 'a@b.test'));
+      Auth.fake(
+        user: _TestUser(id: 'usr_1', email: 'a@b.test'),
+      );
 
       _context().install();
 
@@ -119,7 +122,9 @@ void main() {
     });
 
     test('logout clears the scope user', () async {
-      Auth.fake(user: _TestUser(id: 'usr_1', email: 'a@b.test'));
+      Auth.fake(
+        user: _TestUser(id: 'usr_1', email: 'a@b.test'),
+      );
 
       _context().install();
       await Auth.logout();
@@ -128,7 +133,9 @@ void main() {
     });
 
     test('extras are tagged once a user is reported', () async {
-      Auth.fake(user: _TestUser(id: 'usr_1', teamId: 'team_9'));
+      Auth.fake(
+        user: _TestUser(id: 'usr_1', teamId: 'team_9'),
+      );
 
       _context(
         extras: (user) => user.teamId != null ? {'team_id': user.teamId!} : {},
@@ -138,7 +145,9 @@ void main() {
     });
 
     test('extras are cleared on logout rather than left stale', () async {
-      Auth.fake(user: _TestUser(id: 'usr_1', teamId: 'team_9'));
+      Auth.fake(
+        user: _TestUser(id: 'usr_1', teamId: 'team_9'),
+      );
 
       _context(
         extras: (user) => user.teamId != null ? {'team_id': user.teamId!} : {},

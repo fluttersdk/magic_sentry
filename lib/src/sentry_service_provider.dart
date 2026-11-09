@@ -36,12 +36,12 @@ class SentryServiceProvider<T extends Model> extends ServiceProvider {
     String? Function(T user)? userEmail,
     Map<String, String> Function(T user)? userExtras,
   }) : _userContext = userId != null
-            ? SentryUserContext<T>(
-                id: userId,
-                email: userEmail ?? (T user) => null,
-                extras: userExtras,
-              )
-            : null;
+           ? SentryUserContext<T>(
+               id: userId,
+               email: userEmail ?? (T user) => null,
+               extras: userExtras,
+             )
+           : null;
 
   /// The user-context installer this provider wires in [boot], or null when
   /// the host app supplied no [userId].

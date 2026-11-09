@@ -2,7 +2,7 @@
 
 Sentry error and performance monitoring for the Magic Framework.
 
-**Version:** 0.0.6 · **Dart:** >=3.6.0 · **Flutter:** >=3.27.0
+**Version:** 0.0.6 · **Dart:** >=3.12.0 · **Flutter:** >=3.44.0
 
 ## Commands
 
@@ -28,7 +28,7 @@ lib/
     ├── magic_sentry.dart               # MagicSentry.run + error widget breadcrumb
     ├── sentry_service_provider.dart    # SentryServiceProvider<T>: wires boot()
     ├── sentry_network_interceptor.dart # MagicNetworkInterceptor -> Sentry events/breadcrumbs
-    ├── sentry_token_scrubber.dart      # beforeSend/Transaction/Breadcrumb/SendLog: masks URL-borne tokens
+    ├── sentry_token_scrubber.dart      # beforeSend/Transaction/Span/Breadcrumb/SendLog: masks URL-borne tokens
     └── sentry_user_context.dart        # Auth.stateNotifier -> Sentry scope user
 install.yaml                   # Plugin manifest: config publish, provider injection
 assets/stubs/install/sentry_config.stub  # configureSentry, published to a consumer's

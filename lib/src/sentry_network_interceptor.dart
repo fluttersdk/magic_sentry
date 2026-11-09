@@ -76,11 +76,7 @@ class SentryNetworkInterceptor extends MagicNetworkInterceptor {
           category: 'http',
           level: SentryLevel.warning,
           message: '$method $endpoint -> $status',
-          data: {
-            'method': method,
-            'endpoint': endpoint,
-            'status_code': status,
-          },
+          data: {'method': method, 'endpoint': endpoint, 'status_code': status},
         ),
       );
 
@@ -104,11 +100,7 @@ class SentryNetworkInterceptor extends MagicNetworkInterceptor {
           category: 'http',
           level: SentryLevel.error,
           message: '$method $endpoint -> $status (repeat)',
-          data: {
-            'method': method,
-            'endpoint': endpoint,
-            'status_code': status,
-          },
+          data: {'method': method, 'endpoint': endpoint, 'status_code': status},
         ),
       );
 
