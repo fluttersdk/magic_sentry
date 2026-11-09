@@ -776,6 +776,21 @@ void main() {
       expect(span.attributes['http.response.status_code']!.value, 200);
     });
 
+    test('reads the name of an http span as a request line', () {
+      final String secret = 'a' * 40;
+      final SentrySpanV2 span = spanWith(
+        'POST https://api.test/api/v1/invitations/$secret',
+        <String, SentryAttribute>{
+          'sentry.op': SentryAttribute.string('http.client'),
+        },
+      );
+
+      SentryTokenScrubber.beforeSendSpan(span, Hint());
+
+      expect(span.name, startsWith('POST '));
+      expect(span.name, isNot(contains(secret)));
+    });
+
     test('fails closed: a scrubber failure masks the name and the strings', () {
       registerThrowingRoute();
 
