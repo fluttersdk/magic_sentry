@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### BREAKING
+
+- **`sentry_flutter` and `sentry_dio` move to `^10.3.0`, and the minimum SDK to Dart 3.12 and Flutter 3.44.** An app on `sentry_flutter` 9 stays on 0.0.6. Version 10 also needs Android `minSdk` 26 and iOS 15, and drops CocoaPods for Swift Package Manager; the app's own `SentryFlutter.init` options must drop what 10 removed (`enableLogs`, `enableMetrics`, `profilesSampleRate`, `enableStandaloneAppStartTracing`) and give `beforeSendLog` and `beforeSendMetric` their second `Hint` parameter.
+
+### Added
+
+- **`SentryTokenScrubber.beforeSendSpan` masks streamed spans.** `sentry_flutter` 10 sends each span as it finishes by default (`SentryTraceLifecycle.stream`) and builds no transaction, so `beforeSendTransaction` never ran and a span name or attribute carrying a token went out unscrubbed. The new hook applies the same rules to the span `name` and to every string and string-array attribute, reads an `http` span's name as `METHOD url`, fails closed to `[Filtered]`, and `install` runs it before the app's own `beforeSendSpan`. `beforeSendTransaction` stays for apps that choose `SentryTraceLifecycle.static`. The wrapped `beforeSendLog` now passes the `Hint` through to the app's hook. (`lib/src/sentry_token_scrubber.dart`)
+
 ## [0.0.6] - 2026-11-07
 
 ### Added

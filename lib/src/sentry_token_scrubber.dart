@@ -34,7 +34,7 @@ typedef _TokenRoute = ({RegExp shape, List<int> tokenSegments});
 ///    fingerprint, through [scrubApiUrl], also collapses ids to `{id}`.
 ///
 /// Every hook MASKS and never drops: an event, breadcrumb or structured log
-/// (`Sentry.logger`, sent when `enableLogs` is on) the scrubber does not
+/// (`Sentry.logger`) the scrubber does not
 /// recognise passes through unchanged. A numeric id and the `email` query
 /// key are deliberately left alone; masking them would blind debugging for no
 /// credential gained.
@@ -84,6 +84,7 @@ abstract final class SentryTokenScrubber {
         options.beforeSendTransaction;
     final BeforeBreadcrumbCallback? appBeforeBreadcrumb =
         options.beforeBreadcrumb;
+    final BeforeSendSpanCallback? appBeforeSendSpan = options.beforeSendSpan;
     final BeforeSendLogCallback? appBeforeSendLog = options.beforeSendLog;
 
     options.beforeSend = (SentryEvent event, Hint hint) {
@@ -111,10 +112,18 @@ abstract final class SentryTokenScrubber {
           : appBeforeBreadcrumb(scrubbed, hint);
     };
 
-    options.beforeSendLog = (SentryLog log) {
+    options.beforeSendSpan = (SentrySpanV2 span, Hint hint) {
+      beforeSendSpan(span, hint);
+
+      return appBeforeSendSpan?.call(span, hint);
+    };
+
+    options.beforeSendLog = (SentryLog log, Hint hint) {
       final SentryLog scrubbed = beforeSendLog(log);
 
-      return appBeforeSendLog == null ? scrubbed : appBeforeSendLog(scrubbed);
+      return appBeforeSendLog == null
+          ? scrubbed
+          : appBeforeSendLog(scrubbed, hint);
     };
   }
 
@@ -159,8 +168,11 @@ abstract final class SentryTokenScrubber {
         // span in a sent transaction is, ignores `setData`.
         for (final MapEntry<String, dynamic> entry
             in span.data.entries.toList()) {
-          span.data[entry.key] =
-              _scrubValue(entry.key, entry.value, http: http);
+          span.data[entry.key] = _scrubValue(
+            entry.key,
+            entry.value,
+            http: http,
+          );
         }
       }
     } on Object {
@@ -173,6 +185,28 @@ abstract final class SentryTokenScrubber {
     }
 
     return transaction;
+  }
+
+  /// Masks a streamed [span] in place: its `name` and every string or
+  /// string-array attribute. Since sentry_flutter 10 the SDK streams spans by
+  /// default and never builds the transaction [beforeSendTransaction] sees.
+  ///
+  /// An HTTP span (by its `sentry.op` attribute) has its name read as a
+  /// `METHOD url` description. Fails closed: if scrubbing throws, the name and
+  /// every string attribute become `[Filtered]`.
+  static void beforeSendSpan(SentrySpanV2 span, Hint hint) {
+    final Object? operation = span.attributes['sentry.op']?.value;
+    final bool http = operation is String && operation.startsWith('http');
+
+    try {
+      span.name = http
+          ? _scrubHttpDescription(span.name)
+          : _scrubLocation(span.name);
+      _rewriteAttributes(span, (String text) => _scrubLocation(text));
+    } on Object {
+      span.name = _filtered;
+      _rewriteAttributes(span, (String _) => _filtered);
+    }
   }
 
   /// Masks [crumb] in place: its `message` and every string in its `data`.
@@ -314,16 +348,45 @@ abstract final class SentryTokenScrubber {
   ) {
     for (final MapEntry<String, SentryAttribute> entry
         in log.attributes.entries.toList()) {
-      final Object? value = entry.value.value;
+      final SentryAttribute? masked = _rewritten(entry.value, rewrite);
 
-      if (value is String) {
-        log.attributes[entry.key] = SentryAttribute.string(rewrite(value));
-      } else if (value is List<String>) {
-        log.attributes[entry.key] = SentryAttribute.stringArray(
-          value.map(rewrite).toList(),
-        );
+      if (masked != null) {
+        log.attributes[entry.key] = masked;
       }
     }
+  }
+
+  static void _rewriteAttributes(
+    SentrySpanV2 span,
+    String Function(String text) rewrite,
+  ) {
+    for (final MapEntry<String, SentryAttribute> entry
+        in span.attributes.entries.toList()) {
+      final SentryAttribute? masked = _rewritten(entry.value, rewrite);
+
+      if (masked != null) {
+        span.setAttribute(entry.key, masked);
+      }
+    }
+  }
+
+  /// The string or string-array [attribute] with [rewrite] applied, or null
+  /// for a number or boolean, which the scrubber leaves alone.
+  static SentryAttribute? _rewritten(
+    SentryAttribute attribute,
+    String Function(String text) rewrite,
+  ) {
+    final Object? value = attribute.value;
+
+    if (value is String) {
+      return SentryAttribute.string(rewrite(value));
+    }
+
+    if (value is List<String>) {
+      return SentryAttribute.stringArray(value.map(rewrite).toList());
+    }
+
+    return null;
   }
 
   static String? _maskedIfSet(String? text) => text == null ? null : _filtered;
@@ -342,11 +405,7 @@ abstract final class SentryTokenScrubber {
     };
   }
 
-  static dynamic _scrubValue(
-    String key,
-    dynamic value, {
-    required bool http,
-  }) {
+  static dynamic _scrubValue(String key, dynamic value, {required bool http}) {
     if (value is String) {
       if (key == 'http.query') {
         return _maskQueryString(value);
