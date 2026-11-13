@@ -10,11 +10,7 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 /// an API response rather than from a form.
 class _TestUser extends Model with Authenticatable {
   _TestUser({required String id, String? email, String? teamId}) {
-    setRawAttributes({
-      'id': id,
-      if (email != null) 'email': email,
-      if (teamId != null) 'team_id': teamId,
-    });
+    setRawAttributes({'id': id, 'email': ?email, 'team_id': ?teamId});
   }
 
   @override

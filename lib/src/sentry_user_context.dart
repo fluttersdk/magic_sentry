@@ -27,13 +27,7 @@ class SentryUserContext<T extends Model> {
   /// called only when a user is reported, and its keys REPLACE whatever the
   /// previous call set, so the same key can carry a new value across a team
   /// switch without leaking the old one.
-  SentryUserContext({
-    required String Function(T user) id,
-    required String? Function(T user) email,
-    Map<String, String> Function(T user)? extras,
-  }) : _id = id,
-       _email = email,
-       _extras = extras;
+  SentryUserContext({required this._id, required this._email, this._extras});
 
   /// Extracts the reported user id from [T]. Empty means "no user".
   final String Function(T user) _id;
