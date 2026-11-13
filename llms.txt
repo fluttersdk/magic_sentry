@@ -1,0 +1,82 @@
+# magic_sentry
+
+> Sentry for Magic Framework apps: a one-call boot before `Magic.init` in a web-safe zone, HTTP failure reports for Magic's `Http` facade, a scope user that follows `Auth.stateNotifier` and URL token masking before anything is sent. Without a DSN it does nothing.
+
+**Stack**: Flutter >=3.44.0 · Dart >=3.12.0 · `magic` ^0.0.29 · `sentry_flutter` and `sentry_dio` ^10.3.0. No state management library, no mocking library.
+
+**Setup**:
+
+```bash
+flutter pub add magic_sentry
+dart run magic:dowel plugin:install magic_sentry
+```
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:magic/magic.dart';
+import 'package:magic_sentry/magic_sentry.dart';
+
+import 'config/app.dart';
+import 'config/sentry.dart'; // published by plugin:install
+
+void main() {
+  MagicSentry.run(configure: configureSentry, appRunner: _boot);
+}
+
+Future<void> _boot() async {
+  MagicSentry.installErrorWidgetBreadcrumb();
+
+  await Magic.init(
+    configFactories: [
+      () => appConfig,
+      // Keep every other config factory your main() already passes.
+    ],
+  );
+
+  runApp(MagicApplication(title: 'My App'));
+}
+```
+
+The installer publishes `lib/config/sentry.dart` (reads `SENTRY_DSN`, `SENTRY_ENVIRONMENT`, `SENTRY_RELEASE`, `SENTRY_TRACES_SAMPLE_RATE` from `.env`) and registers `SentryServiceProvider` in `lib/config/app.dart`. It cannot rewrite `main()`.
+
+## API
+
+- `MagicSentry.run({configure, appRunner})`: opens one zone, creates `SentryWidgetsFlutterBinding`, loads `.env`, calls `SentryFlutter.init`, then `appRunner`. Installs `SentryTokenScrubber` after `configure`. `MagicSentry.installErrorWidgetBreadcrumb()` adds a `fatal` breadcrumb when a build error replaces the interface.
+- `SentryServiceProvider<T extends Model>(app, {userId, userEmail, userExtras})`: `register()` binds nothing; `boot()` returns at once unless `Sentry.isEnabled`, then wires the network interceptor, `SentryUserContext`, the `ReportsBreadcrumb` listener and `SentryNavigatorObserver`.
+- `SentryNetworkInterceptor`: status `0` and `>= 500` become an event (fingerprint `['http', method, endpoint, status]`), anything else a breadcrumb; one event per distinct failure per session, then `(repeat)` breadcrumbs. `dispositionFor`, `normalizeEndpoint`, `reportedFailures`.
+- `SentryUserContext<T>({id, email, extras})`: `install()` follows `Auth.stateNotifier`, `apply()` sets the scope user (null on sign-out), `userFor(user)`.
+- `SentryTokenScrubber`: `install(options)`, `beforeSend`, `beforeSendTransaction`, `beforeSendSpan`, `beforeBreadcrumb`, `beforeSendLog`, `scrubApiUrl(url)`. Masks query values whose key names a secret, route-bound token segments and opaque 32+ character API segments; only masks, fails closed.
+- `EventBreadcrumbs.breadcrumbFor(event)`: the breadcrumb for an event implementing `ReportsBreadcrumb`, or null.
+
+## Platforms
+
+Wherever `sentry_flutter` 10 runs: iOS 15+, Android `minSdk` 26+, macOS 12+, web, Windows, Linux. There is no native code in this package. Release health needs named routes, because `SentryNavigatorObserver` reads `RouteSettings.name`.
+
+## Rules for agents
+
+- `MagicSentry.run` is the entire body of `main()`; `Magic.init` goes inside `appRunner`. Do not call `WidgetsFlutterBinding.ensureInitialized()` before it.
+- Read settings through `Env` inside `configure`: `Config` is not loaded yet. The barrel exports no `configureSentry`; import your own `config/sentry.dart`.
+- Register `SentryServiceProvider` in the `providers` list so the navigator observer is added before the router builds its config.
+- Leave `captureFailedRequests` off on `addSentry()`; `SentryNetworkInterceptor` is the one reporting layer.
+- Return a `String` from `userId` (`user.id?.toString() ?? ''`): `Model.id` is `dynamic` and often an `int`, which throws when the user context installs.
+- Pass app-specific data through `userExtras` or an event implementing `ReportsBreadcrumb`; keep secrets out of `breadcrumbData`.
+- Set your own `beforeSend` style hooks inside `configure`; a hook assigned after `SentryFlutter.init` replaces the scrubber.
+- An empty `SENTRY_DSN` is valid: the SDK is off and nothing here runs. `sendDefaultPii` and session replay stay off unless the app turns them on in its own `configure`.
+- In tests nothing needs setting up without a DSN. To read the scope, `Sentry.init` with a placeholder DSN, and `Sentry.close()` and `Auth.unfake()` in `tearDown`.
+
+## Docs
+
+- [Installation](https://anilcancakir.com/magic_sentry/docs/getting-started/installation.md): requirements, installer, `main()`, the `.env` keys, release health.
+- [Boot and the Provider](https://anilcancakir.com/magic_sentry/docs/basics/boot-and-provider.md): what `run` and `boot()` wire, in order, inert without a DSN.
+- [HTTP Reporting](https://anilcancakir.com/magic_sentry/docs/basics/http-reporting.md): events, breadcrumbs, grouping, repeats.
+- [User Context](https://anilcancakir.com/magic_sentry/docs/basics/user-context.md): `userId`, `userEmail`, `userExtras`, sign-out.
+- [Event Breadcrumbs](https://anilcancakir.com/magic_sentry/docs/basics/event-breadcrumbs.md): `ReportsBreadcrumb` events.
+- [Token Scrubbing](https://anilcancakir.com/magic_sentry/docs/guides/token-scrubbing.md): the rules, the hooks, failing closed, limits.
+- [Testing](https://anilcancakir.com/magic_sentry/docs/guides/testing.md): placeholder DSN, pure members, a spy driver.
+
+## Links
+
+- [README](https://github.com/anilcancakir/magic_sentry/blob/master/README.md): install, boot, HTTP failures, scrubbing, the agent rules table.
+- [API reference](https://pub.dev/documentation/magic_sentry/latest/): generated from the doc comments.
+- [Changelog](https://github.com/anilcancakir/magic_sentry/blob/master/CHANGELOG.md): what changed in each version.
+- [Source](https://github.com/anilcancakir/magic_sentry): issues and pull requests.

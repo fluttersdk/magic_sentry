@@ -1,105 +1,63 @@
 # Installation
 
-- [Introduction](#introduction)
+Add `magic_sentry` to a Magic app, run the installer, wrap `main()` in `MagicSentry.run` and set a DSN.
+
+- [Install](#install)
 - [Requirements](#requirements)
-- [Installing the Package](#installing-the-package)
-- [Running the Install Command](#running-the-install-command)
-- [Wiring main()](#wiring-main)
-- [Registering the Service Provider](#registering-the-service-provider)
-- [Configuration Reference](#configuration-reference)
+- [Wire main](#wire-main)
+- [Register the Provider](#register-the-provider)
+- [Configuration](#configuration)
 - [Release Health](#release-health)
-- [Next Steps](#next-steps)
+- [Verify](#verify)
+- [Related Documentation](#related-documentation)
 
-<a name="introduction"></a>
-## Introduction
+<a name="install"></a>
+## Install
 
-`magic_sentry` wires [Sentry](https://sentry.io) into a Magic application: a
-web-safe zone-wrapped boot, HTTP failure reporting for magic's `Http` facade
-(which never throws), a scope user kept in step with `Auth.stateNotifier`,
-and a navigator observer on `MagicRouter`.
+```bash
+flutter pub add magic_sentry
+dart run magic:dowel plugin:install magic_sentry
+```
 
-Sentry has to start BEFORE `Magic.init`, so a failure during boot is reported
-too. That is the one place this package's install differs from a typical
-Magic plugin: there is no `magic.config_factory` entry, because `Config` is
-not loaded yet at the point Sentry needs its DSN.
+The installer reads the package's `install.yaml`, publishes `lib/config/sentry.dart` (your own copy, free to edit) and injects `SentryServiceProvider` into the `providers` list of `lib/config/app.dart`. It cannot rewrite `main()`, so that step is yours. There is no `magic.config_factory` entry: Sentry starts before `Magic.init`, when `Config` does not exist yet.
 
 <a name="requirements"></a>
 ## Requirements
 
-- **Dart SDK**: 3.12.0 or higher
-- **Flutter**: 3.44.0 or higher
-- **Magic Framework** 0.0.22 or higher, installed and bootstrapped (`lib/config/app.dart` present). 0.0.22 is the first release with `Event.listenAny` and `ReportsBreadcrumb`, which the event breadcrumbs call
+| Requirement | Value |
+|:------------|:------|
+| Dart | `>=3.12.0` |
+| Flutter | `>=3.44.0` |
+| Magic | `^0.0.29`, installed and bootstrapped (`lib/config/app.dart` exists). The token scrubber reads `MagicRouter.allRoutes`, which 0.0.29 introduced |
+| Sentry SDK | `sentry_flutter` and `sentry_dio` `^10.3.0`, pulled in by the package. Version 10 needs Android `minSdk` 26, iOS 15 and macOS 12, and uses Swift Package Manager instead of CocoaPods |
 
-<a name="installing-the-package"></a>
-## Installing the Package
+An app on `sentry_flutter` 9 stays on magic_sentry 0.0.6. Version 10 removed `enableLogs`, `enableMetrics`, `profilesSampleRate` and `enableStandaloneAppStartTracing` from the init options, and gave `beforeSendLog` and `beforeSendMetric` a second `Hint` parameter; drop or update those in your own `configure` callback.
 
-```bash
-flutter pub add magic_sentry
-```
+<a name="wire-main"></a>
+## Wire main
 
-Or add it manually to `pubspec.yaml`:
-
-```yaml
-dependencies:
-  magic_sentry: ^0.0.7
-```
-
-Then fetch dependencies:
-
-```bash
-flutter pub get
-```
-
-<a name="running-the-install-command"></a>
-## Running the Install Command
-
-This package ships no package-specific CLI provider; `fluttersdk_artisan`'s
-generic manifest installer reads its `install.yaml` directly:
-
-```bash
-dart run <app>:artisan plugin:install magic_sentry
-```
-
-The command performs the following steps:
-
-1. **Creates** `lib/config/sentry.dart` from the bundled stub.
-2. **Injects** `SentryServiceProvider` into the `providers` list in `lib/config/app.dart`.
-
-> [!NOTE]
-> Steps 3 and 4 of a typical Magic plugin install (a config-factory injection
-> into `Magic.init`, and a native platform edit) do not apply here: this
-> package has neither. `main()` wiring is a manual step, covered next.
-
-<a name="wiring-main"></a>
-## Wiring main()
-
-`MagicSentry.run` replaces the whole body of `main()`. It opens one zone,
-initialises Sentry's widgets binding (`SentryWidgetsFlutterBinding`, which
-frame tracking needs), loads `.env`, then starts Sentry and hands control to
-your existing boot function as `appRunner`. Do not call
-`WidgetsFlutterBinding.ensureInitialized()` before it: a binding that already
-exists is kept, and frame tracking then disables itself.
+`MagicSentry.run` is the whole body of `main()`. It opens one zone, creates Sentry's widgets binding, loads `.env`, starts Sentry and hands control to your boot function.
 
 ```dart
 import 'package:flutter/material.dart';
 import 'package:magic/magic.dart';
 import 'package:magic_sentry/magic_sentry.dart';
+
 import 'config/app.dart';
-import 'config/sentry.dart'; // injected by install
+import 'config/sentry.dart'; // published by plugin:install
 
 void main() {
   MagicSentry.run(configure: configureSentry, appRunner: _boot);
 }
 
 Future<void> _boot() async {
-  // Tags a build error that replaced the interface, distinguishing it from
-  // an exception that merely got logged. Call it before the first widget
-  // builds.
+  // Tags a build error that replaced the interface; call it before the first widget builds.
   MagicSentry.installErrorWidgetBreadcrumb();
 
   await Magic.init(
     configFactories: [
       () => appConfig,
+      // Keep every other config factory your main() already passes.
     ],
   );
 
@@ -107,100 +65,72 @@ Future<void> _boot() async {
 }
 ```
 
-`configureSentry` comes from the published `lib/config/sentry.dart` and reads
-`.env` directly (see [Configuration Reference](#configuration-reference)
-below). Write your own `configure` callback instead when the standard keys
-are not enough.
+`configureSentry` reads `.env` directly. Write your own `configure` callback when the standard keys are not enough, and set your own `beforeSend`, `beforeBreadcrumb` and similar hooks inside it, never after `SentryFlutter.init`.
 
 > [!IMPORTANT]
-> `MagicSentry.run` must be the ENTIRE body of `main()`. On Flutter web,
-> `SentryFlutter.init` opens its own zone only when called from the root zone
-> (`PlatformDispatcher.onError` alone misses async errors there, see
-> [flutter/flutter#100277](https://github.com/flutter/flutter/issues/100277)).
-> Entering the zone in `MagicSentry.run` first is what avoids a second,
-> competing zone and the "Zone mismatch" error Flutter raises when the
-> binding and `runApp` end up in different zones.
+> Do not call `WidgetsFlutterBinding.ensureInitialized()` before `run`: an existing binding is kept, and Sentry's frame tracking then disables itself. Do not put anything else in `main()` either, or the app and its binding can end up in different zones.
 
-<a name="registering-the-service-provider"></a>
-## Registering the Service Provider
+<a name="register-the-provider"></a>
+## Register the Provider
 
-If you ran `plugin:install`, the provider was already injected with no type
-argument and no user callbacks, which is a valid, working default (the
-network interceptor and the navigator observer wire up; user reporting is
-skipped). Edit `lib/config/app.dart` to add your own user model:
+The installer adds the provider with no type argument and no callbacks, which is a working default: the network interceptor and the navigator observer wire up and user reporting is skipped. Edit the entry the installer added to the `providers` list of `lib/config/app.dart` to report your own user (`User` is your app's model):
 
 ```dart
-import 'package:magic/magic.dart';
-import 'package:magic_sentry/magic_sentry.dart'; // injected by install
+import 'package:magic_sentry/magic_sentry.dart';
+
 import '../app/models/user.dart';
 
-final appConfig = {
-  'app': {
-    'providers': [
-      (app) => RouteServiceProvider(app),
-      (app) => AppServiceProvider(app),
-      (app) => SentryServiceProvider<User>(
-        app,
-        userId: (user) => user.id,
-        userEmail: (user) => user.email,
-        // Optional: anything else worth tagging once a user is reported.
-        userExtras: (user) => {
-          if (user.currentTeam?.id case final String teamId)
-            'team_id': teamId,
-        },
-      ), // injected by install, edit the type argument and callbacks by hand
-    ],
-  },
-};
+final List<Object> providers = [
+  // ...your other providers
+  (app) => SentryServiceProvider<User>(
+    app,
+    userId: (user) => user.id?.toString() ?? '',
+    userEmail: (user) => user.email,
+  ),
+];
 ```
 
-> [!TIP]
-> `SentryServiceProvider.boot()` returns immediately when `Sentry.isEnabled`
-> is false, which is every local run and the whole test suite unless a test
-> calls `Sentry.init` itself. Nothing it wires ever runs without a DSN.
+`Model.id` is `dynamic` and is often an `int`, so return a `String`: an int id throws when the user context installs, and a signed-in session restored at boot would take `Magic.init` down with it.
 
-<a name="configuration-reference"></a>
-## Configuration Reference
+<a name="configuration"></a>
+## Configuration
 
-The generated `lib/config/sentry.dart` reads these `.env` keys:
+`lib/config/sentry.dart` reads these `.env` keys:
 
 | Key | Default | Purpose |
-|-----|---------|---------|
-| `SENTRY_DSN` | `''` (disabled) | Your project's DSN. Empty leaves the SDK inert; `appRunner` still runs. |
-| `SENTRY_ENVIRONMENT` | `'local'` | Tags every event, e.g. `production`, `staging`. |
-| `SENTRY_RELEASE` | `''` (unset) | Attached to every event. Required on web, which has no package manifest to auto-detect a release from; set it via `--dart-define` at build time. |
-| `SENTRY_TRACES_SAMPLE_RATE` | `0.2` | Fraction of transactions traced. Client spans continue into the API through `sentry_dio`'s propagated `sentry-trace` header, so raising this multiplies server spans too. |
+|:----|:--------|:--------|
+| `SENTRY_DSN` | `''` (off) | The project DSN. Empty leaves the SDK inert and `appRunner` still runs. |
+| `SENTRY_ENVIRONMENT` | `local` | Tags every event: `production`, `staging`. |
+| `SENTRY_RELEASE` | unset | The release attached to every event. Required on web, which has no manifest to derive one from; write it into the `.env` you bundle at build time (`Env` does not read `--dart-define`). |
+| `SENTRY_TRACES_SAMPLE_RATE` | `0.2` | Fraction of traces sampled. Client spans continue into the API through `sentry_dio`'s `sentry-trace` header, so a higher rate raises server spans too. |
 
-Two things `configureSentry` does NOT read from `.env`, on purpose:
-
-- **`sendDefaultPii` stays `false`.** Flipping it sends the user's IP address
-  and request bodies with every event. An app that needs it enables it in
-  its own `configure` callback, explicitly, rather than through a stray
-  environment variable.
-- **Session replay is never enabled.** It has no Flutter web implementation
-  and its own PII review; add it yourself if your app needs it.
+Two things are never read from `.env`, on purpose. `sendDefaultPii` stays `false`: turning it on sends the user's IP address and request bodies with every event, so an app that needs it sets it in its own `configure`. `configureSentry` never enables session replay.
 
 <a name="release-health"></a>
 ## Release Health
 
-`configureSentry` turns on `enableAutoSessionTracking`, but a session is only
-recorded when `SentryNavigatorObserver` sees a NAMED route change (it reads
-`RouteSettings.name`). `SentryServiceProvider` registers the observer for
-you; make sure your own routes carry a `name`, or release health silently
-stays empty while error reporting keeps working.
+`configureSentry` turns on `enableAutoSessionTracking`, but a session is recorded only when `SentryNavigatorObserver` sees a named route change, because it reads `RouteSettings.name`. The provider registers the observer. Give your routes a `name`, or release health stays empty while error reporting keeps working.
 
-<a name="next-steps"></a>
-## Next Steps
+<a name="verify"></a>
+## Verify
 
-- **HTTP reporting**: `SentryNetworkInterceptor` reports a 5xx or a dead
-  connection (`MagicError.statusCode == 0`) as an event, a 4xx as a
-  breadcrumb, and deduplicates repeats within a session. See
-  `lib/src/sentry_network_interceptor.dart`.
-- **User context**: `SentryUserContext<T>` follows `Auth.stateNotifier`; see
-  `lib/src/sentry_user_context.dart` for the id/email/extras contract.
-- **Event breadcrumbs**: any package or app event that implements magic's
-  `ReportsBreadcrumb` (`breadcrumbCategory`, `breadcrumbMessage`,
-  `breadcrumbData`) shows up in the breadcrumb trail automatically, no extra
-  wiring required. `magic_deeplink`'s `DeeplinkOpened` and
-  `DeeplinkNavigating` are two examples. See
-  `lib/src/event_breadcrumbs.dart`.
+Set `SENTRY_DSN` in `.env`, run the app and file one event:
+
+```dart
+import 'package:sentry_flutter/sentry_flutter.dart';
+
+Future<void> verify() async {
+  assert(Sentry.isEnabled, 'SENTRY_DSN is empty, so the SDK is off');
+
+  await Sentry.captureMessage('magic_sentry installed');
+}
+```
+
+The message shows up in the Sentry project within a few seconds. With an empty DSN `Sentry.isEnabled` is `false` and every integration in this package does nothing.
+
+<a name="related-documentation"></a>
+## Related Documentation
+
+- [Boot and the Provider](../basics/boot-and-provider.md): what `run` and `boot()` wire, in order.
+- [HTTP Reporting](../basics/http-reporting.md): which failures become issues.
+- [Token Scrubbing](../guides/token-scrubbing.md): what is masked before anything is sent.
