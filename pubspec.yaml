@@ -1,17 +1,16 @@
 name: magic_sentry
-description: Sentry error and performance monitoring for the Magic Framework.
+description: "Sentry for Magic apps: web-safe boot before Magic.init, HTTP failure reports, auth-synced user scope and URL token masking. Inert without a DSN."
 version: 0.0.7
-homepage: https://magic.fluttersdk.com/sentry
-documentation: https://magic.fluttersdk.com/packages/sentry/getting-started/installation
-repository: https://github.com/fluttersdk/magic_sentry
-issue_tracker: https://github.com/fluttersdk/magic_sentry/issues
+homepage: https://anilcancakir.com/magic_sentry
+repository: https://github.com/anilcancakir/magic_sentry
+issue_tracker: https://github.com/anilcancakir/magic_sentry/issues
 
 topics:
   - sentry
   - error-monitoring
+  - crash-reporting
   - observability
   - magic
-  - flutter
 
 environment:
   sdk: ">=3.12.0 <4.0.0"

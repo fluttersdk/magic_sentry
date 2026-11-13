@@ -2,6 +2,8 @@
 .claude/
 CLAUDE.md
 .mcp.json
+skills/
+tool/
 
 # IDEs
 .idea/
@@ -23,8 +25,8 @@ coverage/
 .packages
 build/
 
-# Environment
-.env
+# Environment: the root .env only; example/.env is a bundled asset of the example
+/.env
 
 # OS files
 .DS_Store
