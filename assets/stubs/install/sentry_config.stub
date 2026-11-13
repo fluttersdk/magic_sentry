@@ -14,8 +14,9 @@ const String sentryEnvironmentEnvKey = 'SENTRY_ENVIRONMENT';
 ///
 /// Left empty by default: the SDK derives `package@version+build` from the
 /// platform manifest on iOS and Android, but Flutter web has no manifest to
-/// read, so a web build needs this set explicitly (typically via
-/// `--dart-define` at build time) for release health to mean anything.
+/// read, so a web build needs this set explicitly (in the `.env` bundled at
+/// build time; `Env` does not read `--dart-define`) for release health to
+/// mean anything.
 const String sentryReleaseEnvKey = 'SENTRY_RELEASE';
 
 /// The `.env` key naming the fraction of transactions that are traced.
