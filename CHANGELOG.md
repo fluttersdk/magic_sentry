@@ -4,6 +4,32 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- **The repository moved to `anilcancakir/magic_sentry`.** `homepage` (the package landing), `repository` and `issue_tracker` in `pubspec.yaml` point at the new owner, the `documentation` key is gone (the landing links the docs, as for magic and wind), and the LICENSE holder is now Anılcan Çakır. The package name, the API and the version line are unchanged. (`pubspec.yaml`, `LICENSE`)
+- **The workflows and the README badge target `master`.** CI, the changelog check and the docs check run on pull requests to `master`. Every action is pinned by commit SHA and the workflows run with read-only permissions by default. (`.github/workflows/`)
+- **The publish workflow validates more and releases itself.** The tag must sit on `master` and name the same version as `pubspec.yaml` and the agent skill, `flutter pub publish --dry-run` and a pana run that must score 160 points pass, and a `## [<version>]` CHANGELOG section must exist before anything is published. The GitHub Release is then created from that section. (`.github/workflows/publish.yml`)
+- **The pub.dev description and topics are written for search and for agents.** The description leads with the job ("Sentry for Magic apps") and the four things it does; the topics are `sentry`, `error-monitoring`, `crash-reporting`, `observability` and `magic`, and `flutter` is gone because pub.dev derives the SDK tag itself. (`pubspec.yaml`)
+- **The README follows the Magic plugin standard.** It opens with the Magic logo and the centered header, then an `At a glance` table, one section per capability and a `For AI coding agents` rules table. (`README.md`, `.github/magic-logo.svg`)
+- **The analyzer no longer suppresses `unintended_html_in_doc_comment`.** The package analyzes clean without it. (`analysis_options.yaml`)
+- **Every change keeps the docs in step.** The post-change checklist in `CLAUDE.md` and the pull request template require the changelog, README, `llms.txt`, `doc/` pages and the agent skill to match the change, and the release command now targets `master`. (`CLAUDE.md`, `.claude/commands/release.md`)
+- **The install command and the installer references use the new names.** The docs, the skill, `llms.txt` and the `install.yaml` comment say `dart run magic:dowel plugin:install magic_sentry`, a command that arrives with magic 0.1.0, and point at dowel for the `install.yaml` schema. (`README.md`, `doc/`, `llms.txt`, `skills/magic-sentry/SKILL.md`, `install.yaml`)
+
+### Added
+
+- `doc/`: seven pages in the repository's docs standard (installation, boot and the provider, HTTP reporting, user context, event breadcrumbs, token scrubbing and testing), checked by `tool/check-docs.py` and a docs link check on every pull request. The installation guide moved here from a single page.
+- `llms.txt`: the package for an AI coding agent, with setup, the API, platform support and the rules an agent must follow.
+- `skills/magic-sentry`: an agent skill for the package, installed with `npx skills add anilcancakir/magic_sentry`. It stays out of the pub.dev archive.
+- `example/`: a runnable Magic app (web runner included) whose `main()` is `MagicSentry.run`, with the provider registered, a button that files a test event and a button that fails an HTTP call to show the interceptor.
+- `SECURITY.md`, a pull request template, issue forms that link the private vulnerability report and the API reference, and a `Changelog` check: a pull request that changes `lib/`, `install.yaml` or `assets/stubs/` must also change `CHANGELOG.md`.
+
+### Fixed
+
+- **The docs and the post-install message return a `String` from `userId`.** `Model.id` is `dynamic` and often an `int`, and an int id throws when `SentryUserContext` installs, which takes `Magic.init` down for a session restored at boot. The samples now write `user.id?.toString() ?? ''` and the pages carry a gotcha for it. (`install.yaml`, `doc/`, `README.md`, `llms.txt`, `skills/magic-sentry/SKILL.md`)
+- **`SENTRY_RELEASE` is documented as read from the bundled `.env`.** `Env` does not read `--dart-define`, so the published config comment and the installation guide no longer say it does. (`assets/stubs/install/sentry_config.stub`, `doc/getting-started/installation.md`)
+- **The scrubber's fail-closed note matches `sentry_flutter` 10.** A throwing hook makes the SDK drop the event, breadcrumb or log, but send a streamed span half scrubbed; the scrubber keeps the report with the covered fields masked either way. `MagicSentry.run`'s doc comment now lists `beforeSendSpan` among the hooks it wraps. (`lib/src/sentry_token_scrubber.dart`, `lib/src/magic_sentry.dart`)
+- **`SentryUserContext` assigns its extractors through initializing formals.** Three `prefer_initializing_formals` infos cost the package 10 pub.dev points. The constructor now uses Dart 3.12's private named parameters (`required this._id`); the public names `id`, `email` and `extras` are unchanged. (`lib/src/sentry_user_context.dart`)
+
 ## [0.0.7] - 2026-11-10
 
 ### BREAKING
