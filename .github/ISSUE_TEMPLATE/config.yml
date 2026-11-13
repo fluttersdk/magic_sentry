@@ -1,5 +1,8 @@
 blank_issues_enabled: false
 contact_links:
-  - name: Question / Discussion
-    url: https://github.com/fluttersdk/magic/discussions
-    about: Ask questions and discuss Magic plugins with the community
+  - name: Security vulnerability
+    url: https://github.com/anilcancakir/magic_sentry/security/advisories/new
+    about: Report a vulnerability privately, not as a public issue
+  - name: API reference
+    url: https://pub.dev/documentation/magic_sentry/latest/
+    about: Check the API reference before opening an issue
