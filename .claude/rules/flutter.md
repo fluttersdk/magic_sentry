@@ -5,7 +5,7 @@ paths:
 
 # Flutter / Dart Stack
 
-- Dart >=3.12.0, Flutter >=3.44.0: use modern patterns (records, switch expressions, class modifiers such as `abstract final` for an all-static helper, strict null safety)
+- Dart >=3.13.0, Flutter >=3.47.0: use modern patterns (records, switch expressions, class modifiers such as `abstract final` for an all-static helper, strict null safety)
 - Import order: dart stdlib → flutter → `package:magic/magic.dart` → `package:sentry_flutter/...` / `package:sentry_dio/...` → relative imports
 - Shape: a zone-wrapped boot helper (`MagicSentry.run`) plus one `ServiceProvider`; there is no Manager/Driver/Handler chain, because there is only one transport, Sentry's own
 - Boot order is load-bearing: `MagicSentry.run` starts Sentry BEFORE `Magic.init`, so nothing it reaches may read `Config`; the published `lib/config/sentry.dart` reads `.env` through `Env` directly and is not a magic config factory

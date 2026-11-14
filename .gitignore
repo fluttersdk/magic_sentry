@@ -34,6 +34,9 @@ coverage/
 /build/
 pubspec.lock
 
+# The example app's build output
+example/build/
+
 # AI coding tools
 .ac/
 # Local development path wiring (never committed; breaks CI which has no sibling paths)

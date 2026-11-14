@@ -101,8 +101,7 @@ void main() {
           final SentryEvent? event = await configured.beforeSend!(
             SentryEvent(
               request: SentryRequest(
-                url:
-                    'https://app.test/auth/reset-password?token=abc&email=a%40b.c',
+                url: 'https://app.test/auth/reset-password?token=abc&email=a%40b.c',
               ),
             ),
             Hint(),

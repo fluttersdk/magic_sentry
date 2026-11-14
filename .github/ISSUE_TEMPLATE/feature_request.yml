@@ -1,11 +1,11 @@
 name: Feature Request
-description: Suggest a new feature or enhancement for Magic Sentry Plugin
+description: Suggest a new feature or enhancement for magic_sentry
 labels: ["enhancement"]
 body:
   - type: markdown
     attributes:
       value: |
-        Have an idea for the Sentry plugin? We'd love to hear it. This package
+        Have an idea for magic_sentry? I would like to hear it. This package
         stays generic on purpose: it knows no app's model, team or tags. If the
         idea is specific to one app, say how it would reach the package through
         a callback (`userExtras`, a `ReportsBreadcrumb` event) rather than a
@@ -34,6 +34,7 @@ body:
         - Boot (MagicSentry.run)
         - HTTP reporting (SentryNetworkInterceptor)
         - User context (SentryUserContext)
+        - Token scrubbing (SentryTokenScrubber)
         - Breadcrumbs (EventBreadcrumbs, navigation)
         - Service provider / install
         - Documentation
@@ -50,7 +51,7 @@ body:
 
         (app) => SentryServiceProvider<User>(
           app,
-          userId: (user) => user.id,
+          userId: (user) => user.id?.toString() ?? '',
           userExtras: (user) => {'plan': user.plan},
         ),
       render: dart

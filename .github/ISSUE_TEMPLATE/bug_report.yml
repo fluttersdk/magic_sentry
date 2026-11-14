@@ -1,5 +1,5 @@
 name: Bug Report
-description: Report a bug in Magic Sentry Plugin
+description: Report a bug in magic_sentry
 labels: ["bug"]
 body:
   - type: markdown
@@ -54,6 +54,7 @@ body:
         - SentryServiceProvider (wiring)
         - SentryNetworkInterceptor (HTTP events and breadcrumbs)
         - SentryUserContext (scope user and tags)
+        - SentryTokenScrubber (URL token masking)
         - EventBreadcrumbs (ReportsBreadcrumb events)
         - Install (plugin:install, lib/config/sentry.dart)
         - Not sure
@@ -85,8 +86,8 @@ body:
   - type: input
     id: plugin-version
     attributes:
-      label: Magic Sentry Version
-      placeholder: "0.0.7"
+      label: magic_sentry Version
+      placeholder: "0.1.0"
     validations:
       required: true
 
@@ -102,7 +103,7 @@ body:
     id: sentry-version
     attributes:
       label: sentry_flutter Version
-      placeholder: "9.27.0"
+      placeholder: "10.3.0"
     validations:
       required: true
 
@@ -110,6 +111,6 @@ body:
     id: flutter-version
     attributes:
       label: Flutter Version
-      placeholder: "3.41.0"
+      placeholder: "3.47.0"
     validations:
       required: true

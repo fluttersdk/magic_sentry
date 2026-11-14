@@ -1,7 +1,4 @@
 {
-  "enabledPlugins": {
-    "fluttersdk@fluttersdk-marketplace": true
-  },
   "hooks": {
     "PostToolUse": [
       {

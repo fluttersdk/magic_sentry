@@ -39,10 +39,12 @@ typedef _TokenRoute = ({RegExp shape, List<int> tokenSegments});
 /// key are deliberately left alone; masking them would blind debugging for no
 /// credential gained.
 ///
-/// FAIL CLOSED. The SDK catches a throwing `beforeSend` or `beforeSendLog` and
-/// sends the event or log it was given, half scrubbed. So a hook that fails
-/// here replaces every field it would have scrubbed with `[Filtered]` and still
-/// returns the event.
+/// FAIL CLOSED. A throwing hook is no place to fail: sentry_flutter 10 catches
+/// it and DROPS the event, breadcrumb or log, but sends a streamed span as it
+/// was, half scrubbed, and nothing promises another SDK version would not do
+/// the same for the rest. So a hook that fails here replaces every field it
+/// would have scrubbed with `[Filtered]` and still returns the event, which
+/// keeps the report and leaks no token.
 abstract final class SentryTokenScrubber {
   static const String _filtered = '[Filtered]';
 
@@ -192,8 +194,9 @@ abstract final class SentryTokenScrubber {
   /// default and never builds the transaction [beforeSendTransaction] sees.
   ///
   /// An HTTP span (by its `sentry.op` attribute) has its name read as a
-  /// `METHOD url` description. Fails closed: if scrubbing throws, the name and
-  /// every string attribute become `[Filtered]`.
+  /// `METHOD url` description. Fails closed, and here it matters most: the SDK
+  /// sends a span whose hook threw as it was, so on failure the name and every
+  /// string attribute become `[Filtered]`.
   static void beforeSendSpan(SentrySpanV2 span, Hint hint) {
     final Object? operation = span.attributes['sentry.op']?.value;
     final bool http = operation is String && operation.startsWith('http');
@@ -246,9 +249,9 @@ abstract final class SentryTokenScrubber {
   /// string-array attribute. Number and boolean attributes are left alone.
   ///
   /// An attribute is immutable, so a masked one replaces its map entry. Fails
-  /// closed, and here it matters most: the SDK catches a throwing
-  /// `beforeSendLog` and sends the log it was given, so on failure the body
-  /// and every string attribute become `[Filtered]`.
+  /// closed: the SDK catches a throwing `beforeSendLog` and drops the log, so
+  /// on failure the body and every string attribute become `[Filtered]` and
+  /// the log still goes out.
   static SentryLog beforeSendLog(SentryLog log) {
     try {
       log.body = _scrubLocation(log.body);

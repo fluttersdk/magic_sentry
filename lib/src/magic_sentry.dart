@@ -54,9 +54,9 @@ class MagicSentry {
   /// runs: see `lib/config/sentry.dart`'s `sentryDsn`.
   ///
   /// [SentryTokenScrubber] is installed AFTER [configure] returns, so it runs
-  /// first in `beforeSend`, `beforeSendTransaction`, `beforeBreadcrumb` and
-  /// `beforeSendLog` and hands its masked value to whichever of those hooks
-  /// [configure] set. A hook assigned any later than this (after
+  /// first in `beforeSend`, `beforeSendTransaction`, `beforeSendSpan`,
+  /// `beforeBreadcrumb` and `beforeSendLog` and hands its masked value to
+  /// whichever of those hooks [configure] set. A hook assigned any later than this (after
   /// `SentryFlutter.init`) replaces the scrubber, so set app hooks inside
   /// [configure].
   static void run({

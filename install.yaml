@@ -13,7 +13,7 @@
 # network interceptor, the user context and the navigator observer once
 # Magic.init has run), so `magic.provider` is set.
 #
-# See doc/install_yaml_schema.md (in fluttersdk_artisan) for the full schema.
+# See doc/plugins/install-yaml.md (in dowel) for the full schema.
 
 plugin_name: magic_sentry
 
@@ -40,6 +40,7 @@ post_install:
          }
 
          Future<void> _boot() async {
+           // Keep every config factory your main() already passes.
            await Magic.init(configFactories: [...]);
            runApp(MyApp());
          }
@@ -50,9 +51,9 @@ post_install:
 
          (app) => SentryServiceProvider<User>(
            app,
-           userId: (user) => user.id,
+           userId: (user) => user.id?.toString() ?? '',
            userEmail: (user) => user.email,
          ),
 
-       Leave the type argument and both callbacks out to skip user reporting;
+       Model.id is dynamic and often an int, so return a String. Leave the type argument and both callbacks out to skip user reporting;
        the network interceptor and the navigator observer wire up either way.

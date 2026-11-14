@@ -1,0 +1,26 @@
+name: magic_sentry_example
+description: Boots Sentry before Magic.init, registers SentryServiceProvider and files a test event from a button.
+publish_to: 'none'
+
+environment:
+  sdk: ">=3.13.0 <4.0.0"
+  flutter: ">=3.47.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  magic: ^0.1.0
+  magic_sentry:
+    path: ../
+  material_ui: ^1.11.0
+  sentry_flutter: ^10.4.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - .env

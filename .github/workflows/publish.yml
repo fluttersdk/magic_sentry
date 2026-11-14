@@ -5,15 +5,51 @@ on:
     tags:
       - '[0-9]+.[0-9]+.[0-9]+*'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
 jobs:
   validate:
     name: Validate
     runs-on: ubuntu-latest
+    outputs:
+      notes: ${{ steps.notes.outputs.body }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # pub.dev trusts every tag that matches the pattern, so a tag pushed from
+      # an unmerged branch would publish code that skipped the pull request and
+      # its checks. Release from the merge commit on master.
+      - name: Require the tag to sit on master
+        run: |
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/master; then
+            echo "::error::Tag $GITHUB_REF_NAME is not on master; tag the merge commit." >&2
+            exit 1
+          fi
+
+      # The tag, pubspec.yaml and the agent skill must name one version, or
+      # pub.dev, the GitHub Release and the skill would each carry a different
+      # one.
+      - name: Check version stamps
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          pubspec="$(awk '/^version:/ { print $2 }' pubspec.yaml)"
+          skill="$(awk '/^version:/ { print $2; exit }' skills/magic-sentry/SKILL.md)"
+          if [ "$TAG" != "$pubspec" ] || [ "$TAG" != "$skill" ]; then
+            echo "::error::Version mismatch: tag $TAG, pubspec.yaml $pubspec, skill $skill." >&2
+            exit 1
+          fi
 
       - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
           channel: stable
           cache: true
@@ -30,8 +66,67 @@ jobs:
       - name: Run tests
         run: flutter test
 
+      - name: Validate publish archive
+        run: flutter pub publish --dry-run
+
+      # pub.dev scores 160 points and a release that loses any of them stops
+      # here, before the irreversible publish. A repository URL that does not
+      # match the default branch's pubspec.yaml costs the 10 points of "valid
+      # pubspec"; an unreachable homepage or documentation URL only warns.
+      - name: Require full pub.dev points (pana)
+        run: |
+          dart pub global activate pana 0.23.13
+          dart pub global run pana --no-warning --exit-code-threshold 0 .
+
+      # Runs before the irreversible publish: a tag without a `## [<version>]`
+      # section in CHANGELOG.md stops here instead of shipping a version with
+      # no GitHub Release.
+      - name: Extract changelog section
+        id: notes
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          notes="$(awk -v ver="$VERSION" '
+            $0 ~ "^## \\[" ver "\\]" { flag = 1; next }
+            flag && /^## / { exit }
+            flag { print }
+          ' CHANGELOG.md)"
+          if [ -z "$(printf '%s' "$notes" | tr -d '[:space:]')" ]; then
+            echo "::error::No CHANGELOG.md section found for $VERSION; refusing to publish a version without release notes." >&2
+            exit 1
+          fi
+          {
+            echo 'body<<CHANGELOG_EOF'
+            printf '%s\n' "$notes"
+            echo 'CHANGELOG_EOF'
+          } >> "$GITHUB_OUTPUT"
+
   publish:
     needs: validate
     permissions:
       id-token: write # Required for authentication using OIDC
-    uses: dart-lang/setup-dart/.github/workflows/publish.yml@v1.8.1
+    uses: dart-lang/setup-dart/.github/workflows/publish.yml@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1.8.1
+
+  github-release:
+    name: GitHub Release
+    needs: [validate, publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Required to create the GitHub Release
+    steps:
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ github.ref_name }}
+          NOTES: ${{ needs.validate.outputs.notes }}
+        run: |
+          case "$VERSION" in
+            *-*) FLAG="--prerelease" ;;
+            *) FLAG="--latest" ;;
+          esac
+          gh release create "$VERSION" \
+            --title "$VERSION" \
+            --notes "$NOTES" \
+            --verify-tag \
+            "$FLAG"
