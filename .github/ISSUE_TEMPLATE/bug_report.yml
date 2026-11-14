@@ -87,7 +87,7 @@ body:
     id: plugin-version
     attributes:
       label: magic_sentry Version
-      placeholder: "0.0.7"
+      placeholder: "0.1.0"
     validations:
       required: true
 
@@ -111,6 +111,6 @@ body:
     id: flutter-version
     attributes:
       label: Flutter Version
-      placeholder: "3.44.0"
+      placeholder: "3.47.0"
     validations:
       required: true

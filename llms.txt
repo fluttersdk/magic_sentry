@@ -2,7 +2,7 @@
 
 > Sentry for Magic Framework apps: a one-call boot before `Magic.init` in a web-safe zone, HTTP failure reports for Magic's `Http` facade, a scope user that follows `Auth.stateNotifier` and URL token masking before anything is sent. Without a DSN it does nothing.
 
-**Stack**: Flutter >=3.44.0 · Dart >=3.12.0 · `magic` ^0.0.29 · `sentry_flutter` and `sentry_dio` ^10.3.0. No state management library, no mocking library.
+**Stack**: Flutter >=3.47.0 · Dart >=3.13.0 · `magic` ^0.1.0 · `sentry_flutter` and `sentry_dio` ^10.3.0. No state management library, no mocking library.
 
 **Setup**:
 
@@ -12,9 +12,9 @@ dart run magic:dowel plugin:install magic_sentry
 ```
 
 ```dart
-import 'package:flutter/material.dart';
 import 'package:magic/magic.dart';
 import 'package:magic_sentry/magic_sentry.dart';
+import 'package:material_ui/material_ui.dart';
 
 import 'config/app.dart';
 import 'config/sentry.dart'; // published by plugin:install

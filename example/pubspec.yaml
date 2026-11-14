@@ -3,16 +3,17 @@ description: Boots Sentry before Magic.init, registers SentryServiceProvider and
 publish_to: 'none'
 
 environment:
-  sdk: ">=3.12.0 <4.0.0"
-  flutter: ">=3.44.0"
+  sdk: ">=3.13.0 <4.0.0"
+  flutter: ">=3.47.0"
 
 dependencies:
   flutter:
     sdk: flutter
-  magic: ^0.0.29
+  magic: ^0.1.0
   magic_sentry:
     path: ../
-  sentry_flutter: ^10.3.0
+  material_ui: ^1.11.0
+  sentry_flutter: ^10.4.0
 
 dev_dependencies:
   flutter_test:

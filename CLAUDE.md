@@ -2,11 +2,11 @@
 
 Sentry error and performance monitoring for the Magic Framework: a zone-wrapped boot before `Magic.init`, HTTP failure reports, a scope user that follows `Auth.stateNotifier`, event breadcrumbs and URL token masking.
 
-**Version:** 0.0.7 · **Dart:** >=3.12.0 · **Flutter:** >=3.44.0
+**Version:** 0.1.0 · **Dart:** >=3.13.0 · **Flutter:** >=3.47.0
 
 ## Commands
 
-Host-dispatched through the Magic installer, no package-specific CLI provider:
+Host-dispatched through the Magic installer; the dowel provider (`lib/cli.dart`) contributes no commands:
 
 | Command | Description |
 |---------|-------------|
@@ -23,8 +23,10 @@ Host-dispatched through the Magic installer, no package-specific CLI provider:
 
 ```
 lib/
-├── magic_sentry.dart          # Barrel export, the only public API
+├── magic_sentry.dart          # Barrel export, the only public runtime API
+├── cli.dart                   # Flutter-free barrel: the dowel provider only
 └── src/
+    ├── cli/                            # MagicSentryDowelProvider (no commands; plugin:install needs it)
     ├── event_breadcrumbs.dart          # ReportsBreadcrumb event -> Sentry breadcrumb
     ├── magic_sentry.dart               # MagicSentry.run + error widget breadcrumb
     ├── sentry_service_provider.dart    # SentryServiceProvider<T>: wires boot()

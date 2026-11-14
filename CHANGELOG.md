@@ -4,7 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-14
+
 ### Changed
+
+- **BREAKING: the SDK floor is Dart `>=3.13.0` and Flutter `>=3.47.0`.** Inherited from `magic` 0.1.0, which moved to `dowel`, `wind_kit` and `material_ui`. magic_sentry itself uses none of them; the example app imports `material_ui` in place of Flutter's deprecated `material.dart`. The README, `llms.txt`, the agent skill and the installation guide quote the new floors and `magic` `^0.1.0`. (`pubspec.yaml`, `example/pubspec.yaml`, `example/lib/main.dart`)
+- **Direct dependencies move to their latest releases.** `sentry_flutter` and `sentry_dio` `^10.3.0` to `^10.4.0` (also in `example/`), `test` `^1.25.0` to `^1.32.0`. (`pubspec.yaml`, `example/pubspec.yaml`)
 
 - **The repository moved to `anilcancakir/magic_sentry`.** `homepage` (the package landing), `repository` and `issue_tracker` in `pubspec.yaml` point at the new owner, the `documentation` key is gone (the landing links the docs, as for magic and wind), and the LICENSE holder is now Anılcan Çakır. The package name, the API and the version line are unchanged. (`pubspec.yaml`, `LICENSE`)
 - **The workflows and the README badge target `master`.** CI, the changelog check and the docs check run on pull requests to `master`. Every action is pinned by commit SHA and the workflows run with read-only permissions by default. (`.github/workflows/`)
@@ -17,6 +22,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- `lib/cli.dart` with `MagicSentryDowelProvider`, so `plugin:install magic_sentry` registers under dowel. It contributes no commands, stays Flutter-free, and `dowel` ^0.0.21 is a new dependency. (`lib/cli.dart`, `lib/src/cli/sentry_dowel_provider.dart`, `pubspec.yaml`)
 - `doc/`: seven pages in the repository's docs standard (installation, boot and the provider, HTTP reporting, user context, event breadcrumbs, token scrubbing and testing), checked by `tool/check-docs.py` and a docs link check on every pull request. The installation guide moved here from a single page.
 - `llms.txt`: the package for an AI coding agent, with setup, the API, platform support and the rules an agent must follow.
 - `skills/magic-sentry`: an agent skill for the package, installed with `npx skills add anilcancakir/magic_sentry`. It stays out of the pub.dev archive.

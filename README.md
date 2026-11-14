@@ -32,8 +32,8 @@
 | Import | `package:magic_sentry/magic_sentry.dart` |
 | Entry points | `MagicSentry.run` (boot), `SentryServiceProvider<T>` (wiring), `SentryTokenScrubber`, `SentryNetworkInterceptor`, `SentryUserContext<T>` |
 | Platforms | Wherever `sentry_flutter` 10 runs: iOS 15+, Android `minSdk` 26+, macOS 12+, web, Windows and Linux; the zone boot is what makes web safe |
-| Requires | Dart >=3.12, Flutter >=3.44, `magic` ^0.0.29 |
-| Dependencies | `magic`, `sentry_flutter` ^10.3.0, `sentry_dio` ^10.3.0 |
+| Requires | Dart >=3.13, Flutter >=3.47, `magic` ^0.1.0 |
+| Dependencies | `magic`, `sentry_flutter` ^10.3.0, `sentry_dio` ^10.3.0; dowel runs the installer |
 | License | MIT |
 
 ## Install
@@ -46,9 +46,9 @@ dart run magic:dowel plugin:install magic_sentry
 The installer publishes `lib/config/sentry.dart` (your own editable copy that reads `SENTRY_DSN`, `SENTRY_ENVIRONMENT`, `SENTRY_RELEASE` and `SENTRY_TRACES_SAMPLE_RATE` from `.env`) and registers `SentryServiceProvider` in `lib/config/app.dart`. It cannot rewrite `main()`, so wrap it yourself:
 
 ```dart
-import 'package:flutter/material.dart';
 import 'package:magic/magic.dart';
 import 'package:magic_sentry/magic_sentry.dart';
+import 'package:material_ui/material_ui.dart';
 
 import 'config/app.dart';
 import 'config/sentry.dart'; // published by plugin:install
@@ -159,7 +159,7 @@ Rules for an agent writing code against this package. Each one is a mistake the 
 
 ## Dependencies
 
-`magic` for the container, `Auth.stateNotifier`, `MagicRouter` and the event dispatcher; `sentry_flutter` for the SDK and `sentry_dio` for HTTP breadcrumbs and spans on the `Dio` network driver. Version 10 of the Sentry SDK needs Android `minSdk` 26, iOS 15 and macOS 12; an app on `sentry_flutter` 9 stays on magic_sentry 0.0.6.
+`magic` for the container, `Auth.stateNotifier`, `MagicRouter` and the event dispatcher; `sentry_flutter` for the SDK and `sentry_dio` for HTTP breadcrumbs and spans on the `Dio` network driver; `dowel` to run the installer through `dart run magic:dowel`, which resolves `package:magic_sentry/cli.dart` (`MagicSentryDowelProvider`, no commands). Version 10 of the Sentry SDK needs Android `minSdk` 26, iOS 15 and macOS 12; an app on `sentry_flutter` 9 stays on magic_sentry 0.0.6.
 
 ## Links
 

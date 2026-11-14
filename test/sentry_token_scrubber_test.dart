@@ -912,9 +912,8 @@ void main() {
 
         SentryTokenScrubber.install(options);
 
-        final SentrySpanV2 span = Hub(
-          options,
-        ).startInactiveSpan('GET /invitations/abc123def/accept');
+        final SentrySpanV2 span = Hub(options)
+            .startInactiveSpan('GET /invitations/abc123def/accept');
 
         await options.beforeSendSpan!(span, Hint());
 

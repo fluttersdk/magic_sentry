@@ -26,9 +26,9 @@ The installer reads the package's `install.yaml`, publishes `lib/config/sentry.d
 
 | Requirement | Value |
 |:------------|:------|
-| Dart | `>=3.12.0` |
-| Flutter | `>=3.44.0` |
-| Magic | `^0.0.29`, installed and bootstrapped (`lib/config/app.dart` exists). The token scrubber reads `MagicRouter.allRoutes`, which 0.0.29 introduced |
+| Dart | `>=3.13.0` |
+| Flutter | `>=3.47.0` |
+| Magic | `^0.1.0`, installed and bootstrapped (`lib/config/app.dart` exists). The token scrubber reads `MagicRouter.allRoutes`, which 0.0.29 introduced |
 | Sentry SDK | `sentry_flutter` and `sentry_dio` `^10.3.0`, pulled in by the package. Version 10 needs Android `minSdk` 26, iOS 15 and macOS 12, and uses Swift Package Manager instead of CocoaPods |
 
 An app on `sentry_flutter` 9 stays on magic_sentry 0.0.6. Version 10 removed `enableLogs`, `enableMetrics`, `profilesSampleRate` and `enableStandaloneAppStartTracing` from the init options, and gave `beforeSendLog` and `beforeSendMetric` a second `Hint` parameter; drop or update those in your own `configure` callback.
@@ -39,9 +39,9 @@ An app on `sentry_flutter` 9 stays on magic_sentry 0.0.6. Version 10 removed `en
 `MagicSentry.run` is the whole body of `main()`. It opens one zone, creates Sentry's widgets binding, loads `.env`, starts Sentry and hands control to your boot function.
 
 ```dart
-import 'package:flutter/material.dart';
 import 'package:magic/magic.dart';
 import 'package:magic_sentry/magic_sentry.dart';
+import 'package:material_ui/material_ui.dart';
 
 import 'config/app.dart';
 import 'config/sentry.dart'; // published by plugin:install

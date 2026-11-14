@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:magic/magic.dart';
 import 'package:magic_sentry/magic_sentry.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
